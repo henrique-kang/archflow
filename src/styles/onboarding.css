@@ -1,0 +1,148 @@
+/* ============================================================
+   Onboarding — coach-marks da primeira execução
+   Sem scrim: só o anel de destaque e o card flutuante (z 70,
+   acima de toda a escala do app, que termina em 60).
+   ============================================================ */
+
+.af-onb-ring {
+  position: fixed;
+  z-index: 70;
+  pointer-events: none;
+  border-radius: var(--radius-lg);
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  box-shadow:
+    0 0 0 5px var(--accent-soft),
+    0 0 22px oklch(0.75 0.08 230 / 0.28);
+  animation: af-onb-fade 200ms var(--ease-out);
+  transition:
+    left 200ms var(--ease-out),
+    top 200ms var(--ease-out),
+    width 200ms var(--ease-out),
+    height 200ms var(--ease-out);
+}
+
+.af-onb-card {
+  position: fixed;
+  z-index: 70;
+  width: 300px;
+  padding: 13px 14px 12px;
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-float);
+  animation: af-onb-in 200ms var(--ease-out);
+}
+
+@keyframes af-onb-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+@keyframes af-onb-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+.af-onb-step {
+  margin-bottom: 4px;
+  font-size: 10.5px;
+  font-weight: 640;
+  letter-spacing: 0.04em;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}
+
+.af-onb-title {
+  margin: 0 0 5px;
+  font-size: 13px;
+  font-weight: 640;
+  color: var(--ink);
+}
+
+.af-onb-text {
+  margin: 0 0 12px;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--ink-muted);
+}
+
+.af-onb-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.af-onb-dots {
+  display: flex;
+  gap: 5px;
+}
+
+.af-onb-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--border);
+  transition: background 150ms;
+}
+
+.af-onb-dot.is-active {
+  background: var(--accent);
+}
+
+.af-onb-actions {
+  display: flex;
+  gap: 6px;
+}
+
+/* botões próprios (não usam .af-btn para a âncora
+   `.af-btn.is-primary` do passo 3 nunca casar com o tour) */
+.af-onb-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 28px;
+  padding: 0 11px;
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--ink-muted);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 530;
+  white-space: nowrap;
+  transition: background 150ms, color 150ms;
+}
+
+.af-onb-btn:hover {
+  background: var(--bg-hover);
+  color: var(--ink);
+}
+
+.af-onb-btn:focus-visible {
+  outline: 2px solid var(--accent-strong);
+  outline-offset: 1px;
+}
+
+.af-onb-btn.is-primary {
+  background: var(--accent-strong);
+  color: oklch(0.13 0 0);
+  font-weight: 570;
+}
+
+.af-onb-btn.is-primary:hover {
+  background: var(--accent);
+  color: oklch(0.13 0 0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .af-onb-ring,
+  .af-onb-card {
+    animation: none;
+    transition: none;
+  }
+}

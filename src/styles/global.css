@@ -1,0 +1,1155 @@
+/* ============================================================
+   ArchFlow — tema dark "mission-control noturno"
+   Neutros chroma 0; a cor vive nos nós, grupos e fluxos.
+   ============================================================ */
+
+:root {
+  --bg-canvas: oklch(0.115 0 0);
+  --bg-panel: oklch(0.165 0 0);
+  --bg-raised: oklch(0.21 0 0);
+  --bg-input: oklch(0.135 0 0);
+  --bg-hover: oklch(0.24 0 0);
+
+  --border: oklch(0.29 0 0);
+  --border-soft: oklch(0.235 0 0);
+
+  --ink: oklch(0.93 0 0);
+  --ink-muted: oklch(0.74 0 0);
+  --ink-faint: oklch(0.58 0 0);
+
+  --accent: oklch(0.75 0.08 230);
+  --accent-strong: oklch(0.66 0.11 230);
+  --accent-soft: oklch(0.75 0.08 230 / 0.16);
+
+  --danger: oklch(0.68 0.15 25);
+
+  --edge: oklch(0.5 0 0);
+  --edge-hover: oklch(0.66 0 0);
+
+  --font-ui: 'Inter Variable', 'Segoe UI', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Cascadia Mono', Consolas, monospace;
+
+  --radius: 8px;
+  --radius-lg: 12px;
+
+  --shadow-panel: 0 1px 2px oklch(0 0 0 / 0.4);
+  --shadow-float: 0 8px 28px oklch(0 0 0 / 0.55), 0 2px 6px oklch(0 0 0 / 0.4);
+
+  /* escala z semântica */
+  --z-canvas-overlay: 5;
+  --z-panel: 10;
+  --z-dropdown: 30;
+  --z-presentbar: 40;
+  --z-toast: 60;
+
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--bg-canvas);
+  color: var(--ink);
+  font-family: var(--font-ui);
+  font-size: 13px;
+  line-height: 1.45;
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+button,
+input,
+select {
+  font: inherit;
+  color: inherit;
+}
+
+/* ---------- layout do app ---------- */
+
+.af-app {
+  display: grid;
+  grid-template-rows: 46px 1fr;
+  height: 100%;
+}
+
+.af-main {
+  position: relative;
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  min-height: 0;
+}
+
+.af-app.is-presentation {
+  grid-template-rows: 1fr;
+}
+
+.af-app.is-presentation .af-main {
+  grid-template-columns: 1fr;
+}
+
+.af-canvas-wrap {
+  position: relative;
+  min-width: 0;
+  width: 100%;
+  height: 100%;
+}
+
+/* ---------- barra superior ---------- */
+
+.af-topbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 10px;
+  background: var(--bg-panel);
+  border-bottom: 1px solid var(--border-soft);
+  z-index: var(--z-panel);
+}
+
+.af-logo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 640;
+  font-size: 13.5px;
+  letter-spacing: 0.01em;
+  padding-right: 4px;
+  user-select: none;
+}
+
+.af-logo svg {
+  display: block;
+}
+
+.af-docname {
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-size: 13px;
+  font-weight: 480;
+  color: var(--ink-muted);
+  min-width: 60px;
+  max-width: 300px;
+  transition: border-color 150ms, background 150ms, color 150ms;
+}
+
+.af-docname:hover {
+  background: var(--bg-input);
+  color: var(--ink);
+}
+
+.af-docname:focus {
+  outline: none;
+  border-color: var(--accent-strong);
+  background: var(--bg-input);
+  color: var(--ink);
+}
+
+.af-topbar-spacer {
+  flex: 1;
+}
+
+.af-divider {
+  width: 1px;
+  height: 22px;
+  background: var(--border-soft);
+  margin: 0 2px;
+}
+
+/* ---------- botões ---------- */
+
+.af-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 10px;
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--ink-muted);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 150ms, color 150ms, border-color 150ms;
+}
+
+.af-btn:hover:not(:disabled) {
+  background: var(--bg-hover);
+  color: var(--ink);
+}
+
+.af-btn:active:not(:disabled) {
+  background: var(--bg-raised);
+}
+
+.af-btn:disabled {
+  opacity: 0.38;
+  cursor: default;
+}
+
+.af-btn:focus-visible {
+  outline: 2px solid var(--accent-strong);
+  outline-offset: 1px;
+}
+
+.af-btn.is-icon {
+  width: 30px;
+  padding: 0;
+}
+
+.af-btn.is-primary {
+  background: var(--accent-strong);
+  color: oklch(0.13 0 0);
+  font-weight: 570;
+}
+
+.af-btn.is-primary:hover:not(:disabled) {
+  background: var(--accent);
+  color: oklch(0.13 0 0);
+}
+
+.af-btn.is-outline {
+  border-color: var(--border);
+}
+
+.af-btn.is-danger:hover:not(:disabled) {
+  background: oklch(0.68 0.15 25 / 0.15);
+  color: var(--danger);
+}
+
+.af-btn.is-active {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+/* ---------- inputs ---------- */
+
+.af-input,
+.af-select {
+  width: 100%;
+  height: 30px;
+  padding: 0 8px;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius);
+  background: var(--bg-input);
+  color: var(--ink);
+  transition: border-color 150ms;
+}
+
+.af-input:focus,
+.af-select:focus {
+  outline: none;
+  border-color: var(--accent-strong);
+}
+
+.af-select {
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23888f99' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 9px center;
+  padding-right: 26px;
+}
+
+.af-field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin-bottom: 12px;
+}
+
+.af-field > label {
+  font-size: 11px;
+  font-weight: 570;
+  color: var(--ink-faint);
+}
+
+/* ---------- painéis laterais ---------- */
+
+.af-sidebar {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--bg-panel);
+  border-right: 1px solid var(--border-soft);
+  z-index: var(--z-panel);
+}
+
+.af-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px 8px;
+  font-size: 12px;
+  font-weight: 640;
+  color: var(--ink);
+}
+
+.af-panel-scroll {
+  overflow-y: auto;
+  min-height: 0;
+  flex: 1;
+  padding: 0 8px 12px;
+}
+
+.af-props {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 264px;
+  max-height: calc(100% - 20px);
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-panel);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-float);
+  z-index: var(--z-canvas-overlay);
+}
+
+.af-props .af-panel-scroll {
+  padding: 0 12px 12px;
+}
+
+/* ---------- lista de fluxos ---------- */
+
+.af-flow-row {
+  border-radius: var(--radius);
+  margin-bottom: 2px;
+}
+
+.af-flow-row-main {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 7px 8px;
+  border: none;
+  border-radius: var(--radius);
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  color: var(--ink-muted);
+  transition: background 150ms, color 150ms;
+}
+
+.af-flow-row-main:hover {
+  background: var(--bg-hover);
+  color: var(--ink);
+}
+
+.af-flow-row.is-active > .af-flow-row-main {
+  background: var(--accent-soft);
+  color: var(--ink);
+}
+
+.af-flow-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.af-flow-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 520;
+}
+
+.af-flow-count {
+  font-size: 11px;
+  color: var(--ink-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+.af-flow-editor {
+  padding: 8px 8px 10px;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius);
+  background: var(--bg-input);
+  margin: 2px 0 8px;
+}
+
+.af-hop {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 2px;
+  font-size: 11.5px;
+  color: var(--ink-muted);
+}
+
+.af-hop-n {
+  width: 17px;
+  height: 17px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 640;
+  flex-shrink: 0;
+}
+
+.af-hop-label {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+}
+
+.af-hop .af-btn {
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border-radius: 5px;
+  opacity: 0;
+  transition: opacity 120ms;
+}
+
+.af-hop:hover .af-btn {
+  opacity: 1;
+}
+
+.af-transport {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.af-speed {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--ink-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+input[type='range'].af-range {
+  flex: 1;
+  appearance: none;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--border);
+  cursor: pointer;
+}
+
+input[type='range'].af-range::-webkit-slider-thumb {
+  appearance: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: none;
+  transition: transform 120ms;
+}
+
+input[type='range'].af-range::-webkit-slider-thumb:hover {
+  transform: scale(1.2);
+}
+
+/* ---------- paleta de componentes ---------- */
+
+.af-palette {
+  position: absolute;
+  top: 50%;
+  left: 10px;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 5px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-float);
+  z-index: var(--z-canvas-overlay);
+}
+
+.af-palette .af-btn {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+}
+
+.af-palette hr {
+  border: none;
+  border-top: 1px solid var(--border-soft);
+  margin: 3px 2px;
+}
+
+/* ---------- nós ---------- */
+
+.af-node {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 130px;
+  max-width: 250px;
+  padding: 8px 12px 8px 8px;
+  border-radius: 10px;
+  background: oklch(0.185 0 0 / 0.97);
+  border: 1px solid var(--node-color-border, var(--border));
+  box-shadow: 0 2px 8px oklch(0 0 0 / 0.35);
+  transition: opacity 220ms var(--ease-out), box-shadow 150ms, border-color 150ms;
+}
+
+.af-node-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 7px;
+  background: var(--node-color-soft);
+  color: var(--node-color);
+  flex-shrink: 0;
+}
+
+.af-node-label {
+  font-size: 12.5px;
+  font-weight: 550;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.af-node-label.is-mono {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 480;
+  letter-spacing: -0.01em;
+}
+
+.react-flow__node.selected .af-node {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent), 0 2px 12px oklch(0 0 0 / 0.5);
+}
+
+/* handles */
+.af-node .react-flow__handle {
+  width: 8px;
+  height: 8px;
+  border: 1.5px solid var(--accent);
+  background: var(--bg-canvas);
+  opacity: 0;
+  transition: opacity 130ms;
+}
+
+.react-flow__node:hover .af-node .react-flow__handle,
+.react-flow__node.selected .af-node .react-flow__handle,
+.react-flow.is-connecting .af-node .react-flow__handle {
+  opacity: 1;
+}
+
+/* ---------- grupos ---------- */
+
+.af-group {
+  width: 100%;
+  height: 100%;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--group-color-border);
+  background: var(--group-color-bg);
+  transition: opacity 220ms var(--ease-out);
+}
+
+.af-group-title {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px;
+  font-size: 11.5px;
+  font-weight: 640;
+  letter-spacing: 0.02em;
+  color: var(--group-color);
+  user-select: none;
+}
+
+.af-group-title .dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--group-color);
+}
+
+.react-flow__node.selected .af-group {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
+/* nó de grupo não tem card padrão do RF */
+.react-flow__node-group {
+  background: transparent !important;
+  border: none !important;
+  padding: 0 !important;
+  border-radius: var(--radius-lg) !important;
+  box-shadow: none !important;
+}
+
+/* ---------- arestas ---------- */
+
+.af-edge-path {
+  fill: none;
+  stroke: var(--edge);
+  stroke-width: 1.6;
+  transition: stroke 150ms, opacity 220ms var(--ease-out);
+}
+
+.react-flow__edge:hover .af-edge-path {
+  stroke: var(--edge-hover);
+}
+
+.react-flow__edge.selected .af-edge-path {
+  stroke: var(--accent);
+  stroke-width: 2;
+}
+
+.af-edge-path.is-flow {
+  stroke-width: 2.2;
+}
+
+.af-edge-path.is-flow.is-glow {
+  filter: drop-shadow(0 0 5px var(--flow-glow));
+}
+
+@keyframes af-dash-run {
+  to {
+    stroke-dashoffset: -32;
+  }
+}
+
+.af-edge-path.is-running {
+  stroke-dasharray: 11 7;
+  animation: af-dash-run var(--dash-dur, 0.6s) linear infinite;
+}
+
+.af-edge-path.is-paused {
+  animation-play-state: paused;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .af-edge-path.is-running {
+    animation: none;
+    stroke-dasharray: none;
+  }
+}
+
+/* rótulo da aresta */
+.af-edge-label {
+  position: absolute;
+  padding: 2px 6px;
+  border-radius: 5px;
+  background: oklch(0.15 0 0 / 0.92);
+  border: 1px solid var(--border-soft);
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  color: var(--ink-muted);
+  pointer-events: none;
+  white-space: nowrap;
+  transition: opacity 220ms var(--ease-out), color 150ms, border-color 150ms;
+}
+
+.af-edge-label.is-flow {
+  color: var(--ink);
+  border-color: var(--flow-color);
+}
+
+/* badge de hop */
+.af-hop-badge {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  border-radius: 9px;
+  font-size: 10px;
+  font-weight: 700;
+  pointer-events: none;
+  box-shadow: 0 1px 4px oklch(0 0 0 / 0.5);
+}
+
+/* esmaecimento fora do fluxo ativo */
+.af-dim {
+  opacity: 0.22 !important;
+  pointer-events: none;
+}
+
+.react-flow__edge.af-dim-edge {
+  opacity: 0.18;
+}
+
+/* modo passo a passo: hops futuros semiapagados */
+.af-edge-path.af-semi-dim {
+  opacity: 0.3;
+}
+
+/* nó "aquecido" pela passagem do pacote (estilo Syncitect) */
+.react-flow__node.af-hot .af-node {
+  border-color: var(--hot);
+  box-shadow:
+    0 0 0 1.5px var(--hot),
+    0 0 16px 2px var(--hot-glow),
+    0 2px 8px oklch(0 0 0 / 0.35);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .react-flow__node.af-hot .af-node {
+    box-shadow: 0 2px 8px oklch(0 0 0 / 0.35);
+    border-color: var(--node-color-border, var(--border));
+  }
+}
+
+/* grupo alvo de drop durante um arraste */
+.af-group.af-drop-target {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent), 0 0 18px oklch(0.75 0.08 230 / 0.25);
+  background: oklch(0.75 0.08 230 / 0.07);
+}
+
+/* cadeado de nó bloqueado */
+.af-lock-badge {
+  position: absolute;
+  top: -7px;
+  right: -7px;
+  width: 16px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  color: var(--ink-faint);
+}
+
+/* rótulo de aresta arrastável quando selecionada */
+.af-edge-label.is-draggable {
+  cursor: grab;
+  border-color: var(--accent-strong);
+}
+
+.af-edge-label.is-draggable:active {
+  cursor: grabbing;
+}
+
+/* editor inline de rótulo */
+.af-inline-edit {
+  position: absolute;
+  z-index: var(--z-canvas-overlay);
+  background: var(--bg-raised);
+  border: 1.5px solid var(--accent-strong);
+  border-radius: 7px;
+  padding: 4px 8px;
+  color: var(--ink);
+  font-size: 12.5px;
+  min-width: 120px;
+  box-shadow: var(--shadow-float);
+}
+
+.af-inline-edit:focus {
+  outline: none;
+}
+
+/* alças de waypoint/segmento */
+.af-wp,
+.af-seg-handle {
+  pointer-events: all;
+}
+
+.af-wp {
+  fill: var(--bg-canvas);
+  stroke: var(--accent);
+  stroke-width: 1.5;
+  cursor: move;
+}
+
+.af-wp:hover {
+  fill: var(--accent);
+}
+
+.af-seg-handle {
+  fill: var(--accent);
+  stroke: var(--bg-canvas);
+  stroke-width: 1.4;
+  opacity: 0.85;
+}
+
+.af-seg-handle:hover {
+  opacity: 1;
+}
+
+.af-seg-handle.is-h {
+  cursor: ns-resize;
+}
+
+.af-seg-handle.is-v {
+  cursor: ew-resize;
+}
+
+/* modo escolher hops: arestas clicáveis */
+.af-picking .react-flow__edge {
+  cursor: copy;
+}
+
+/* modo automático: nós são gatilhos de evento */
+.af-auto .react-flow__node {
+  cursor: pointer;
+}
+
+.af-auto-hint {
+  position: absolute;
+  top: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 7px 14px;
+  background: oklch(0.165 0 0 / 0.92);
+  backdrop-filter: blur(8px);
+  border: 1px solid var(--border-soft);
+  border-radius: 16px;
+  color: var(--ink-muted);
+  font-size: 12px;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: var(--z-canvas-overlay);
+  animation: af-rise2 220ms var(--ease-out);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .af-auto-hint {
+    animation: none;
+  }
+}
+
+/* linhas-guia de alinhamento */
+.af-guide {
+  position: absolute;
+  background: oklch(0.72 0.16 20 / 0.85);
+  pointer-events: none;
+}
+
+/* ---------- React Flow chrome ---------- */
+
+.react-flow {
+  background: var(--bg-canvas);
+}
+
+.react-flow__attribution {
+  background: transparent;
+}
+
+.react-flow__attribution a {
+  color: var(--ink-faint);
+  opacity: 0.5;
+}
+
+.react-flow__controls {
+  border-radius: var(--radius);
+  overflow: hidden;
+  box-shadow: var(--shadow-panel);
+}
+
+.react-flow__controls-button {
+  background: var(--bg-panel);
+  border-bottom: 1px solid var(--border-soft);
+  color: var(--ink-muted);
+  width: 28px;
+  height: 26px;
+}
+
+.react-flow__controls-button:hover {
+  background: var(--bg-hover);
+}
+
+.react-flow__controls-button svg {
+  fill: currentColor;
+}
+
+.react-flow__minimap {
+  border-radius: var(--radius);
+  overflow: hidden;
+  box-shadow: var(--shadow-panel);
+}
+
+.react-flow__edge.selectable {
+  cursor: pointer;
+}
+
+.react-flow__connection-path {
+  stroke: var(--accent);
+  stroke-width: 1.8;
+  stroke-dasharray: 6 5;
+}
+
+.react-flow__selection {
+  background: var(--accent-soft);
+  border: 1px solid var(--accent-strong);
+}
+
+.react-flow__nodesselection-rect {
+  background: transparent;
+  border: 1px dashed var(--accent-strong);
+}
+
+.react-flow__resize-control.handle {
+  width: 7px;
+  height: 7px;
+  border-radius: 2px;
+  background: var(--accent);
+  border: 1px solid var(--bg-canvas);
+}
+
+.react-flow__resize-control.line {
+  border-color: transparent;
+}
+
+/* ---------- dropdown ---------- */
+
+.af-menu {
+  position: fixed;
+  min-width: 190px;
+  padding: 5px;
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-float);
+  z-index: var(--z-dropdown);
+}
+
+.af-menu button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 7px 9px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--ink-muted);
+  cursor: pointer;
+  text-align: left;
+}
+
+.af-menu button:hover {
+  background: var(--bg-hover);
+  color: var(--ink);
+}
+
+.af-menu hr {
+  border: none;
+  border-top: 1px solid var(--border-soft);
+  margin: 4px 2px;
+}
+
+/* ---------- barra de apresentação ---------- */
+
+.af-presentbar {
+  position: absolute;
+  left: 50%;
+  bottom: 18px;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+  background: oklch(0.165 0 0 / 0.92);
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--border-soft);
+  border-radius: 14px;
+  box-shadow: var(--shadow-float);
+  z-index: var(--z-presentbar);
+  animation: af-rise 260ms var(--ease-out);
+}
+
+@keyframes af-rise {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(10px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .af-presentbar {
+    animation: none;
+  }
+}
+
+.af-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 30px;
+  padding: 0 12px;
+  border: 1px solid var(--border-soft);
+  border-radius: 15px;
+  background: transparent;
+  color: var(--ink-muted);
+  cursor: pointer;
+  font-weight: 530;
+  white-space: nowrap;
+  transition: background 150ms, color 150ms, border-color 150ms;
+}
+
+.af-chip:hover {
+  background: var(--bg-hover);
+  color: var(--ink);
+}
+
+.af-chip.is-active {
+  border-color: var(--chip-color, var(--accent));
+  color: var(--ink);
+  background: color-mix(in oklab, var(--chip-color, var(--accent)) 16%, transparent);
+}
+
+.af-chip .dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+/* ---------- pacotes de animação ---------- */
+
+.af-packet {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 12px;
+  height: 12px;
+  margin: -6px 0 0 -6px;
+  border-radius: 50%;
+  pointer-events: none;
+  will-change: transform;
+}
+
+/* ---------- toast ---------- */
+
+.af-toast {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 9px 16px;
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-float);
+  color: var(--ink);
+  font-size: 12.5px;
+  z-index: var(--z-toast);
+  animation: af-rise2 200ms var(--ease-out);
+}
+
+@keyframes af-rise2 {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(8px);
+  }
+}
+
+.af-toast.is-error {
+  border-color: var(--danger);
+}
+
+/* ---------- swatches ---------- */
+
+.af-swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.af-swatch {
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  border: 1px solid oklch(1 0 0 / 0.12);
+  cursor: pointer;
+  padding: 0;
+  transition: transform 120ms;
+}
+
+.af-swatch:hover {
+  transform: scale(1.12);
+}
+
+.af-swatch.is-selected {
+  outline: 2px solid var(--ink);
+  outline-offset: 1px;
+}
+
+.af-icongrid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 4px;
+}
+
+.af-icongrid .af-btn {
+  height: 30px;
+}
+
+.af-kbd {
+  display: inline-block;
+  padding: 1px 5px;
+  border: 1px solid var(--border);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  background: var(--bg-input);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--ink-muted);
+}
+
+.af-hint-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+  font-size: 11.5px;
+  color: var(--ink-muted);
+}
+
+.af-empty-note {
+  padding: 10px 12px;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius);
+  color: var(--ink-faint);
+  font-size: 11.5px;
+  line-height: 1.5;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 5px;
+  border: 2px solid var(--bg-panel);
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
