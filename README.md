@@ -65,4 +65,5 @@ clique no `Web App` e o evento cascateia por onze ondas até chegar no provedor 
 
 - `CLAUDE.md` — arquitetura do código e decisões técnicas
 - `docs/2026-08-06-melhorias-encontradas.md` — backlog de melhorias mapeado em teste real
+- `docs/2026-08-07-proposta-configuracao-de-envio.md` — proposta: variáveis, arestas condicionais e inspetor de pacote
 - `PRODUCT.md` / `DESIGN.md` — contexto de produto e sistema visual
