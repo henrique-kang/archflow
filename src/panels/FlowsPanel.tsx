@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 import {
   IcCheck,
@@ -13,7 +13,7 @@ import {
 } from '../icons/ui'
 import { toast } from '../lib/toast'
 import { onDark } from '../lib/utils'
-import { edgeActive } from '../lib/vars'
+import { flowPlan } from '../lib/flowPlan'
 import type { FlowDef } from '../model/types'
 import { ALL_AUTO, ALL_FLOWS, pauseHistory, resumeHistory, useStore } from '../store/store'
 
@@ -162,6 +162,9 @@ function HopList({ flow }: { flow: FlowDef }) {
   const { removeHop, moveHopTo } = useStore(
     useShallow((s) => ({ removeHop: s.removeHop, moveHopTo: s.moveHopTo })),
   )
+  // plano efetivo: marca variantes inativas, continuações fora do caminho e barreiras
+  const plan = useMemo(() => flowPlan(flow, edges, nodes), [flow, edges, nodes])
+  const blockedOriginal = plan.blockedAt !== null ? plan.hops[plan.blockedAt]?.original : null
   const drag = useRef<{ index: number; moved: boolean } | null>(null)
   const endDragGesture = () => {
     if (drag.current?.moved) resumeHistory()
@@ -175,9 +178,8 @@ function HopList({ flow }: { flow: FlowDef }) {
     <div onDrop={endDragGesture}>
       {flow.edgeIds.map((eid, i) => {
         const e = edges.find((ed) => ed.id === eid)
-        const dormant = e?.data?.when
-          ? !edgeActive(e, nodes.find((n) => n.id === e.source))
-          : false
+        const skipReason = plan.skipped.get(i) ?? null
+        const isBlocked = blockedOriginal === i
         const nth = occurrence.get(eid) ?? 0
         occurrence.set(eid, nth + 1)
         return (
@@ -212,15 +214,25 @@ function HopList({ flow }: { flow: FlowDef }) {
             <span
               className="af-hop-label"
               title={
-                dormant
-                  ? 'Hop dormente: a condição da aresta não vale com a config atual — a animação para aqui'
-                  : e
-                    ? `${labelOf(e.source)} → ${labelOf(e.target)}`
-                    : eid
+                isBlocked
+                  ? 'Hop dormente sem alternativa: a animação para aqui — alterne a flag no nó de origem'
+                  : skipReason === 'dormant'
+                    ? 'Variante inativa pela config atual — a animação segue pelo caminho alternativo'
+                    : skipReason === 'unreachable'
+                      ? 'Fora do caminho atual (continuação do ramo não escolhido)'
+                      : e
+                        ? `${labelOf(e.source)} → ${labelOf(e.target)}`
+                        : eid
               }
-              style={dormant ? { color: '#ffb74d' } : undefined}
+              style={
+                isBlocked
+                  ? { color: '#ffb74d' }
+                  : skipReason
+                    ? { opacity: 0.45, textDecoration: 'line-through' }
+                    : undefined
+              }
             >
-              {dormant ? '⚠ ' : ''}
+              {isBlocked ? '⚠ ' : skipReason ? '↷ ' : ''}
               {e ? `${labelOf(e.source)} → ${labelOf(e.target)}` : '(aresta removida)'}
             </span>
             <button className="af-btn is-danger" onClick={() => removeHop(flow.id, i)} title="Remover hop">

@@ -9,8 +9,10 @@ Packet Tracer).
 > interpolação `{{nome}}`, config no nó com `source` (round-trip visual de consulta) + arestas
 > condicionais `when` com chip `[var = valor]` e dormência, switch ao vivo (painel e menu de
 > contexto), cenários nomeados (salvar/aplicar), estado fora do ar com ✕ persistente, peso de
-> aresta e ficha técnica. Pendentes: item 6 (variantes de fluxo manual — cenários cobrem o
-> espírito) e item 9 (modo replay).
+> aresta e ficha técnica. **Item 6 (variantes de fluxo) também implementado**: um fluxo pode
+> carregar os dois ramos de uma decisão; a config escolhe a variante que flui (hops dormentes
+> com alternativa são pulados, continuações do ramo não escolhido saem por alcançabilidade, e
+> hop dormente sem alternativa continua sendo barreira ⚠). Pendente: item 9 (modo replay).
 
 ## Princípio de fronteira (decidido na conversa)
 

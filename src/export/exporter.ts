@@ -5,6 +5,7 @@ import type { ArchNodeData, GroupNodeData, Side } from '../model/types'
 import { AUTO_EDGE_COLOR, defaultIconFor, typeColor } from '../model/types'
 import { routePoints, roundedPath, polylineLength, pointAlong } from '../canvas/edges/ortho'
 import { absRect, groupDepth, type Rect } from '../canvas/geometry'
+import { flowPlan } from '../lib/flowPlan'
 import { edgeActive, interpolate } from '../lib/vars'
 import { ALL_AUTO, ALL_FLOWS, useStore, activeSets } from '../store/store'
 import { buildFontFaceCss } from './fonts'
@@ -88,9 +89,13 @@ export function buildSvg(opts: ExportOptions = {}): string {
     }
   }
   // pacotes SMIL: no modo automático, um por aresta; senão, um por fluxo
+  // (fluxos usam o caminho EFETIVO — variantes por condição, sem hops dormentes)
   const smilFlows = autoActive
     ? s.edges.map((e) => ({ color: (e.data?.color as string) || AUTO_EDGE_COLOR, edgeIds: [e.id] }))
-    : animatedFlows.map((f) => ({ color: f.color, edgeIds: f.edgeIds }))
+    : animatedFlows.map((f) => ({
+        color: f.color,
+        edgeIds: flowPlan(f, s.edges, s.nodes).hops.map((h) => h.edgeId),
+      }))
 
   // rotas de todas as arestas (com o mesmo espalhamento de âncoras do canvas)
   const shifts = computeAnchorShifts(s.edges, s.nodes)

@@ -24,6 +24,7 @@ import { absRect, inflate, rectContains, sideFacing, sideMid } from '../canvas/g
 import { defaultIconFor, typeLabel } from '../model/types'
 import { seedDoc } from '../model/seed'
 import { docToStore, orderNodes, safeVarKey, storeToDoc, type Doc, type StoreShape } from '../model/yaml'
+import { flowPlan } from '../lib/flowPlan'
 import { pulsePhasesFrom, type PulsePhase } from '../lib/graph'
 import { debounce, nextFlowColor, uid } from '../lib/utils'
 
@@ -32,8 +33,8 @@ export const ALL_FLOWS = '__all__'
 export const ALL_AUTO = '__auto__'
 // Bumpar a versão da chave quando o diagrama de exemplo mudar: faz o app abrir
 // com o exemplo novo sem apagar o documento salvo anteriormente.
-const STORAGE_KEY = 'archflow.doc.v4'
-const HISTORY_KEY = 'archflow.history.v4'
+const STORAGE_KEY = 'archflow.doc.v5'
+const HISTORY_KEY = 'archflow.history.v5'
 
 interface Guides {
   x?: number
@@ -811,10 +812,11 @@ export function activeSets(s: Pick<StoreState, 'activeFlowId' | 'flows' | 'edges
   const nodeIds = new Set<string>()
   const byId = new Map(s.edges.map((e) => [e.id, e]))
   for (const f of flows) {
-    for (const eid of f.edgeIds) {
-      const e = byId.get(eid)
+    // caminho EFETIVO sob a config atual: ramos não escolhidos esmaecem junto
+    for (const hop of flowPlan(f, s.edges, s.nodes).hops) {
+      const e = byId.get(hop.edgeId)
       if (!e) continue
-      edgeIds.add(eid)
+      edgeIds.add(hop.edgeId)
       nodeIds.add(e.source)
       nodeIds.add(e.target)
     }

@@ -5,6 +5,7 @@ import type { OrthoEdge, Side, XY } from '../../model/types'
 import { AUTO_EDGE_COLOR } from '../../model/types'
 import { onDark, withAlpha } from '../../lib/utils'
 import { edgeActive, interpolate, whenLabel } from '../../lib/vars'
+import { flowPlan } from '../../lib/flowPlan'
 import { ALL_AUTO, ALL_FLOWS, pauseHistory, resumeHistory, useStore } from '../../store/store'
 import { anchorShiftsCached } from './anchors'
 import { markGestureEnd } from './gestureState'
@@ -86,7 +87,8 @@ function OrthoEdgeViewInner(props: EdgeProps<OrthoEdge>) {
         inActive = true
         if (s.pulseEdges.has(id)) animColor = (data?.color as string) || AUTO_COLOR
       } else if (s.activeFlowId === ALL_FLOWS) {
-        const f = containing[0]
+        // respeita o plano efetivo de cada fluxo (variantes por condição)
+        const f = containing.find((f) => flowPlan(f, s.edges, s.nodes).hops.some((h) => h.edgeId === id))
         if (f) {
           animColor = f.color
           inActive = true
@@ -94,18 +96,25 @@ function OrthoEdgeViewInner(props: EdgeProps<OrthoEdge>) {
       } else if (s.activeFlowId) {
         const f = containing.find((f) => f.id === s.activeFlowId)
         if (f) {
-          animColor = f.color
-          inActive = true
-          hopIndices = f.edgeIds.map((eid, i) => (eid === id ? i : -1)).filter((i) => i >= 0)
+          const plan = flowPlan(f, s.edges, s.nodes)
+          hopIndices = plan.hops.map((h, i) => (h.edgeId === id ? i : -1)).filter((i) => i >= 0)
+          if (hopIndices.length) {
+            animColor = f.color
+            inActive = true
+          }
+          // aresta do fluxo fora do plano atual → esmaece como o resto
         }
       }
-      const badgeFlow =
-        (s.pickingFlowId && s.flows.find((f) => f.id === s.pickingFlowId)) ||
-        (s.activeFlowId && s.activeFlowId !== ALL_FLOWS && s.activeFlowId !== ALL_AUTO
+      // badges: em picking, numeração crua do editor; com fluxo ativo, numeração EFETIVA
+      const pickingFlow = s.pickingFlowId ? s.flows.find((f) => f.id === s.pickingFlowId) : null
+      const activeSingle =
+        !pickingFlow && s.activeFlowId && s.activeFlowId !== ALL_FLOWS && s.activeFlowId !== ALL_AUTO
           ? s.flows.find((f) => f.id === s.activeFlowId)
-          : null) ||
-        null
-      const hops = badgeFlow ? badgeFlow.edgeIds.map((eid, i) => (eid === id ? i + 1 : -1)).filter((n) => n > 0) : []
+          : null
+      const badgeFlow = pickingFlow ?? activeSingle ?? null
+      const hops = pickingFlow
+        ? pickingFlow.edgeIds.map((eid, i) => (eid === id ? i + 1 : -1)).filter((n) => n > 0)
+        : hopIndices.map((i) => i + 1)
       // modo passo a passo: posição deste hop em relação ao passo atual
       let stepState: 'past' | 'current' | 'future' | null = null
       const step = s.stepIndex

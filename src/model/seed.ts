@@ -118,8 +118,9 @@ export function seedDoc(): Doc {
         when: { var: 'usa_gateway_b', equals: true },
       },
       { id: 'e_recibo', from: 'w_pagamento', to: 'bucket', fromSide: 'r', toSide: 'l', label: 'recibo (PDF)' },
-      // volta do gateway pelo corredor entre as raias, por baixo do diagrama
+      // volta dos gateways pelo corredor entre as raias, por baixo do diagrama
       { id: 'e_callback', from: 'pay_gateway', to: 'webhook', fromSide: 'l', toSide: 'r', label: 'callback (HTTPS)', waypoints: [{ x: 1524, y: 790 }, { x: 1170, y: 790 }] },
+      { id: 'e_callback_b', from: 'pay_gateway_b', to: 'webhook', fromSide: 'l', toSide: 'r', label: 'callback (HTTPS)', waypoints: [{ x: 1512, y: 810 }, { x: 1178, y: 810 }] },
       { id: 'e_evt', from: 'webhook', to: 'topic_eventos', fromSide: 'l', toSide: 'r', label: 'publica evento' },
 
       // notificação
@@ -141,10 +142,11 @@ export function seedDoc(): Doc {
         payload: '{"pedido": "{{pedido}}", "itens": 3,\n "total": 189.90, "ambiente": "{{ambiente}}"}',
       },
       {
+        // carrega os DOIS ramos (A e B): a config escolhe qual variante flui
         id: 'f_pagamento',
         name: 'Pagamento',
         color: '#1565c0',
-        edges: ['e_pag', 'e_cons2', 'e_fraude', 'e_pay', 'e_callback', 'e_evt', 'e_recibo'],
+        edges: ['e_pag', 'e_cons2', 'e_fraude', 'e_pay', 'e_pay_b', 'e_callback', 'e_callback_b', 'e_evt', 'e_recibo'],
         payload: '{"pedido": "{{pedido}}", "valor": 189.90,\n "moeda": "BRL"}',
       },
       { id: 'f_notificacao', name: 'Notificação', color: '#6a1b9a', edges: ['e_fanout', 'e_cons3', 'e_email'] },

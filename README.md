@@ -44,8 +44,10 @@ exemplo".
   arestas de saída podem depender delas (`[var = valor]` no canvas; caminho dormente fica
   apagado). Alterne a flag pelo switch no painel ou pelo botão direito e dispare o evento de novo
   para ver o outro caminho. Nós podem ser marcados **fora do ar**: o evento morre neles com ✕.
-  Fluxos manuais são roteiros fixos — se um hop ficar dormente pela config atual, a animação
-  **para nele com ⚠** (e o inspetor explica o porquê) em vez de fingir que o caminho acontece.
+  **Fluxos com variantes**: um fluxo pode carregar os dois ramos de uma decisão (ex.: Gateway A
+  e B) — a config escolhe qual variante flui, renumerando os hops e esmaecendo o ramo inativo
+  (o editor marca com ↷). Se um hop dormente não tem alternativa, a animação **para nele com ⚠**
+  e o inspetor explica o porquê, em vez de fingir que o caminho acontece.
 - **Inspetor de Pacote** (👁 no transporte, na apresentação ou clicando no pacote): mostra, hop a
   hop, o que o nó de destino faz com a mensagem, o payload de exemplo (antes/depois) e a nota da
   etapa. **Variáveis** do diagrama (`{{pedido}}`) interpolam em rótulos, payloads e notas;

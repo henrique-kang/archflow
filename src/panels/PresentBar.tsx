@@ -1,5 +1,6 @@
 import { useShallow } from 'zustand/react/shallow'
 import { IcEye, IcPause, IcPlay, IcX } from '../icons/ui'
+import { flowPlan } from '../lib/flowPlan'
 import { onDark } from '../lib/utils'
 import { ALL_AUTO, ALL_FLOWS, useStore } from '../store/store'
 
@@ -25,6 +26,11 @@ export function PresentBar() {
     })),
   )
   const inspectorOpen = useStore((s) => s.inspectorOpen)
+  // total de hops EFETIVOS (variantes por condição)
+  const planLen = useStore((s) => {
+    const f = s.flows.find((f) => f.id === s.activeFlowId)
+    return f ? flowPlan(f, s.edges, s.nodes).hops.length : 0
+  })
   const activeFlow = flows.find((f) => f.id === activeFlowId)
 
   const exit = () => {
@@ -86,14 +92,12 @@ export function PresentBar() {
               fontVariantNumeric: 'tabular-nums',
             }}
           >
-            {stepIndex !== null ? `hop ${stepIndex + 1}/${activeFlow.edgeIds.length}` : 'contínuo'}
+            {stepIndex !== null ? `hop ${Math.min(stepIndex + 1, planLen)}/${planLen}` : 'contínuo'}
           </span>
           <button
             className="af-btn is-icon"
             title="Próximo hop (→)"
-            onClick={() =>
-              setStep(stepIndex === null ? 0 : Math.min(activeFlow.edgeIds.length - 1, stepIndex + 1))
-            }
+            onClick={() => setStep(stepIndex === null ? 0 : Math.min(planLen - 1, stepIndex + 1))}
           >
             ›
           </button>

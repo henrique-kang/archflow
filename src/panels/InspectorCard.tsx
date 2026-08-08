@@ -1,5 +1,6 @@
 import { useShallow } from 'zustand/react/shallow'
 import { IcX } from '../icons/ui'
+import { flowPlan } from '../lib/flowPlan'
 import { edgeActive, interpolate, whenLabel } from '../lib/vars'
 import { onDark } from '../lib/utils'
 import type { ArchNodeData } from '../model/types'
@@ -19,11 +20,14 @@ export function InspectorCard() {
       if (!s.activeFlowId || s.activeFlowId === ALL_FLOWS || s.activeFlowId === ALL_AUTO) return null
       const flow = s.flows.find((f) => f.id === s.activeFlowId)
       if (!flow || !flow.edgeIds.length) return null
+      // hops EFETIVOS sob a config atual (variantes por condição)
+      const plan = flowPlan(flow, s.edges, s.nodes)
+      if (!plan.hops.length) return null
       const index = Math.min(
         s.stepIndex ?? (s.liveHop?.flowId === flow.id ? s.liveHop.index : 0),
-        flow.edgeIds.length - 1,
+        plan.hops.length - 1,
       )
-      const edge = s.edges.find((e) => e.id === flow.edgeIds[index])
+      const edge = s.edges.find((e) => e.id === plan.hops[index].edgeId)
       if (!edge) return null
       const src = s.nodes.find((n) => n.id === edge.source)
       const tgt = s.nodes.find((n) => n.id === edge.target)
@@ -36,7 +40,7 @@ export function InspectorCard() {
         flowColor: flow.color,
         payload: flow.payload ?? null,
         index,
-        total: flow.edgeIds.length,
+        total: plan.hops.length,
         edgeLabel: edge.label != null ? String(edge.label) : null,
         note: (edge.data?.note as string) ?? null,
         srcLabel: (src?.data as ArchNodeData | undefined)?.label ?? edge.source,

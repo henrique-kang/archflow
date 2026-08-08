@@ -1,5 +1,6 @@
 import { useReactFlow } from '@xyflow/react'
 import { useEffect } from 'react'
+import { flowPlan } from '../lib/flowPlan'
 import { ALL_AUTO, ALL_FLOWS, redo, undo, useStore } from '../store/store'
 
 const isTyping = (t: EventTarget | null) =>
@@ -112,11 +113,13 @@ export function Hotkeys() {
         (st.presentation || st.stepIndex !== null)
       ) {
         const flow = st.flows.find((f) => f.id === st.activeFlowId)
-        if (flow && flow.edgeIds.length) {
+        // limites pelo caminho EFETIVO (variantes por condição)
+        const planLen = flow ? flowPlan(flow, st.edges, st.nodes).hops.length : 0
+        if (flow && planLen) {
           e.preventDefault()
           const cur = st.stepIndex
-          if (e.key === 'ArrowRight') st.setStep(cur === null ? 0 : Math.min(flow.edgeIds.length - 1, cur + 1))
-          else st.setStep(cur === null ? flow.edgeIds.length - 1 : Math.max(0, cur - 1))
+          if (e.key === 'ArrowRight') st.setStep(cur === null ? 0 : Math.min(planLen - 1, cur + 1))
+          else st.setStep(cur === null ? planLen - 1 : Math.max(0, cur - 1))
           return
         }
       }
