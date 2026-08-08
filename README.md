@@ -61,13 +61,20 @@ exemplo".
 ![Editor com o diagrama de exemplo](docs/screenshots/editor.png)
 
 **Plataforma de Pedidos** é uma arquitetura fictícia, feita só para exercitar a ferramenta: dois
-clientes entram por um API Gateway, os pedidos viram mensagens em filas, workers processam,
-pagamentos vão a serviços externos e o que falha cai numa DLQ com reprocessamento. São 19 nós em
-7 raias aninhadas, 19 arestas (algumas com dobras manuais) e 4 fluxos prontos — Checkout,
-Pagamento, Notificação e Retry/DLQ.
+clientes entram por um API Gateway (com sessão em Redis), os pedidos viram mensagens em filas,
+workers processam, reservam estoque, pagamentos vão a gateways externos e o que falha cai numa
+DLQ com reprocessamento. São 24 nós em 7 raias aninhadas, 27 arestas e **6 fluxos prontos** —
+Login, Checkout, Reserva de Estoque, Pagamento, Notificação e Retry/DLQ.
+
+Três decisões por config para brincar: o Worker Pagamento escolhe **Gateway A ou B** por flag
+buscada do Postgres, o Worker Notificação escolhe **e-mail ou SMS** por um enum local, e o
+Worker Retry decide entre **reenfileirar ou descartar e alertar**. Os 4 cenários prontos
+(Padrão, Contingência com Gateway A fora, Notificação por SMS e Black Friday) trocam tudo de
+uma vez — inclusive as variáveis: o bucket `recibos_{{ambiente}}` vira `recibos_black-friday`.
 
 Como as setas seguem o sentido do dado, ele também é uma boa demonstração do **modo Automático**:
-clique no `Web App` e o evento cascateia por onze ondas até chegar no provedor de e-mail.
+clique no `Web App` e o evento cascateia por doze fases — com direito à consulta de config no
+Postgres — até os provedores externos.
 
 ![Modo automático: evento disparado por clique](docs/screenshots/modo-automatico.png)
 

@@ -33,8 +33,8 @@ export const ALL_FLOWS = '__all__'
 export const ALL_AUTO = '__auto__'
 // Bumpar a versão da chave quando o diagrama de exemplo mudar: faz o app abrir
 // com o exemplo novo sem apagar o documento salvo anteriormente.
-const STORAGE_KEY = 'archflow.doc.v5'
-const HISTORY_KEY = 'archflow.history.v5'
+const STORAGE_KEY = 'archflow.doc.v6'
+const HISTORY_KEY = 'archflow.history.v6'
 
 interface Guides {
   x?: number
