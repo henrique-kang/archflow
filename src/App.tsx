@@ -4,6 +4,7 @@ import { useToast } from './lib/toast'
 import { useStore } from './store/store'
 import { FlowsPanel } from './panels/FlowsPanel'
 import { Hotkeys } from './panels/Hotkeys'
+import { InspectorCard } from './panels/InspectorCard'
 import { NodePalette } from './panels/NodePalette'
 import { Onboarding } from './panels/Onboarding'
 import { PresentBar } from './panels/PresentBar'
@@ -29,6 +30,7 @@ export default function App() {
             <FlowCanvas />
             {!presentation && <NodePalette />}
             <PropertiesPanel />
+            <InspectorCard />
             {presentation && <PresentBar />}
           </div>
         </div>

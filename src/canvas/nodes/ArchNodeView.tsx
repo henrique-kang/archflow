@@ -4,6 +4,7 @@ import { Glyph } from '../../icons/glyphs'
 import type { ArchNode } from '../../model/types'
 import { defaultIconFor, typeColor } from '../../model/types'
 import { withAlpha } from '../../lib/utils'
+import { interpolate } from '../../lib/vars'
 import { useStore } from '../../store/store'
 import { useDimmed } from '../useDimmed'
 
@@ -17,10 +18,13 @@ function ArchNodeViewInner({ id, data }: NodeProps<ArchNode>) {
   const dimmed = useDimmed(id)
   // estado de bloqueio do PRÓPRIO nó (o draggable de NodeProps mistura o global do modo apresentação)
   const locked = useStore((s) => s.nodes.find((n) => n.id === id)?.draggable === false)
+  const variables = useStore((s) => s.variables)
   const icon = data.icon ?? defaultIconFor(data.archType)
+  const down = data.status === 'down'
+  const label = interpolate(data.label, variables)
   return (
     <div
-      className={`af-node${dimmed ? ' af-dim' : ''}`}
+      className={`af-node${dimmed ? ' af-dim' : ''}${down ? ' af-node-down' : ''}`}
       style={
         {
           '--node-color': color,
@@ -32,7 +36,12 @@ function ArchNodeViewInner({ id, data }: NodeProps<ArchNode>) {
       <div className="af-node-icon">
         <Glyph icon={icon} size={17} />
       </div>
-      <div className={`af-node-label${isMonoLabel(data.label) ? ' is-mono' : ''}`}>{data.label}</div>
+      <div className={`af-node-label${isMonoLabel(data.label) ? ' is-mono' : ''}`}>{label}</div>
+      {down && (
+        <span className="af-down-badge" title="Fora do ar (botão direito → Marcar operacional)">
+          ✕
+        </span>
+      )}
       {locked && (
         <span className="af-lock-badge" title="Bloqueado (botão direito → Desbloquear)">
           <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden>

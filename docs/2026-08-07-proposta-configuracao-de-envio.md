@@ -1,7 +1,16 @@
 # Proposta: configurações de envio e comportamento — 2026-08-07
 
 Registro do brainstorm sobre enriquecer os eventos/animações com configuração (inspirado no
-Packet Tracer). Nada daqui está implementado ainda — é o backlog priorizado da próxima rodada.
+Packet Tracer).
+
+> **Status (mesma data):** itens **1–5 do pacote prioritário e 7–8 da fila secundária
+> implementados** — inspetor de pacote (payload por fluxo, transformação e antes/depois por nó,
+> nota por hop, botão 👁 no transporte/apresentação, clique no pacote), variáveis com
+> interpolação `{{nome}}`, config no nó com `source` (round-trip visual de consulta) + arestas
+> condicionais `when` com chip `[var = valor]` e dormência, switch ao vivo (painel e menu de
+> contexto), cenários nomeados (salvar/aplicar), estado fora do ar com ✕ persistente, peso de
+> aresta e ficha técnica. Pendentes: item 6 (variantes de fluxo manual — cenários cobrem o
+> espírito) e item 9 (modo replay).
 
 ## Princípio de fronteira (decidido na conversa)
 

@@ -5,6 +5,7 @@ import type { ArchNodeData, GroupNodeData, Side } from '../model/types'
 import { AUTO_EDGE_COLOR, defaultIconFor, typeColor } from '../model/types'
 import { routePoints, roundedPath, polylineLength, pointAlong } from '../canvas/edges/ortho'
 import { absRect, groupDepth, type Rect } from '../canvas/geometry'
+import { edgeActive, interpolate } from '../lib/vars'
 import { ALL_AUTO, ALL_FLOWS, useStore, activeSets } from '../store/store'
 import { buildFontFaceCss } from './fonts'
 
@@ -195,21 +196,29 @@ export function buildSvg(opts: ExportOptions = {}): string {
   }
 
   // arestas
+  const nodeById = new Map(s.nodes.map((n) => [n.id, n]))
   for (const e of s.edges) {
     const route = routes.get(e.id)
     if (!route) continue
     const stroke = strokeFor(e)
-    const isAnim = edgeFlowColor.has(e.id) && (!sets || sets.edgeIds.has(e.id))
+    const dormant = !edgeActive(e, nodeById.get(e.source))
+    const isAnim = !dormant && edgeFlowColor.has(e.id) && (!sets || sets.edgeIds.has(e.id))
     const marker = `arw-${stroke.replace(/[^a-z0-9]/gi, '')}`
-    const dash = isAnim ? ' stroke-dasharray="11 7" class="afrun"' : e.data?.dashed ? ' stroke-dasharray="7 5"' : ''
+    const dash = isAnim
+      ? ' stroke-dasharray="11 7" class="afrun"'
+      : dormant
+        ? ' stroke-dasharray="3 5"'
+        : e.data?.dashed
+          ? ' stroke-dasharray="7 5"'
+          : ''
     const width = isAnim ? 2.2 : 1.6
     parts.push(
-      `<g${dimAttr(!sets || sets.edgeIds.has(e.id))}>` +
+      `<g${dormant ? ' opacity="0.32"' : dimAttr(!sets || sets.edgeIds.has(e.id))}>` +
         `<path d="${route.d}" fill="none" stroke="${stroke}" stroke-width="${width}"${dash} marker-end="url(#${marker})"/>`,
     )
     if (e.label) {
       const mid = pointAlong(route.pts, e.data?.labelT ?? 0.5)
-      const text = String(e.label)
+      const text = interpolate(String(e.label), s.variables)
       const font = `480 9.5px ${FONT_MONO}`
       const tw = measure(text, font)
       parts.push(
@@ -227,10 +236,11 @@ export function buildSvg(opts: ExportOptions = {}): string {
     const data = n.data as ArchNodeData
     const color = typeColor(data)
     const icon = data.icon ?? defaultIconFor(data.archType)
+    const labelText = interpolate(data.label, s.variables)
     const mono = data.label.includes('_')
     const font = mono ? `480 10.5px ${FONT_MONO}` : `550 12.5px ${FONT_UI}`
     const maxTextW = r.w - 8 - 30 - 9 - 12
-    const lines = wrapText(data.label, font, Math.max(maxTextW, 40))
+    const lines = wrapText(labelText, font, Math.max(maxTextW, 40))
     const lineH = mono ? 13.5 : 15.5
     const textY0 = r.y + r.h / 2 - ((lines.length - 1) * lineH) / 2 + 3.8
     parts.push(

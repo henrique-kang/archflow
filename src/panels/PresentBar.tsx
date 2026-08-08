@@ -1,5 +1,5 @@
 import { useShallow } from 'zustand/react/shallow'
-import { IcPause, IcPlay, IcX } from '../icons/ui'
+import { IcEye, IcPause, IcPlay, IcX } from '../icons/ui'
 import { onDark } from '../lib/utils'
 import { ALL_AUTO, ALL_FLOWS, useStore } from '../store/store'
 
@@ -14,15 +14,17 @@ export function PresentBar() {
       stepIndex: s.stepIndex,
     })),
   )
-  const { setActiveFlow, setPlaying, setSpeed, setPresentation, setStep } = useStore(
+  const { setActiveFlow, setPlaying, setSpeed, setPresentation, setStep, setInspector } = useStore(
     useShallow((s) => ({
       setActiveFlow: s.setActiveFlow,
       setPlaying: s.setPlaying,
       setSpeed: s.setSpeed,
       setPresentation: s.setPresentation,
       setStep: s.setStep,
+      setInspector: s.setInspector,
     })),
   )
+  const inspectorOpen = useStore((s) => s.inspectorOpen)
   const activeFlow = flows.find((f) => f.id === activeFlowId)
 
   const exit = () => {
@@ -61,6 +63,13 @@ export function PresentBar() {
       <div className="af-divider" />
       {activeFlow && (
         <>
+          <button
+            className={`af-btn is-icon${inspectorOpen ? ' is-active' : ''}`}
+            title="Inspetor de pacote"
+            onClick={() => setInspector(!inspectorOpen)}
+          >
+            <IcEye size={14} />
+          </button>
           <button
             className="af-btn is-icon"
             title="Hop anterior (←)"

@@ -16,8 +16,9 @@ import {
 import { useCallback, useRef, useState } from 'react'
 import type React from 'react'
 import { useShallow } from 'zustand/react/shallow'
-import type { AnyNode, ArchType, OrthoEdge, XY } from '../model/types'
+import type { AnyNode, ArchNodeData, ArchType, OrthoEdge, XY } from '../model/types'
 import { TYPE_COLORS, typeColor } from '../model/types'
+import { toast } from '../lib/toast'
 import { withAlpha } from '../lib/utils'
 import { ALL_AUTO, useStore } from '../store/store'
 import { gestureJustEnded } from './edges/gestureState'
@@ -308,8 +309,40 @@ export function FlowCanvas() {
       const selectedIds = st.nodes.filter((n) => n.selected).map((n) => n.id)
       const ids = selectedIds.includes(ctxNode.id) && selectedIds.length > 1 ? selectedIds : [ctxNode.id]
       const locked = ctxNode.draggable === false
+      const nodeData = ctxNode.type === 'arch' ? (ctxNode.data as ArchNodeData) : null
+      const boolVars = nodeData?.vars
+        ? Object.entries(nodeData.vars).filter(([, v]) => typeof v.value === 'boolean')
+        : []
+      const down = nodeData?.status === 'down'
       return (
         <>
+          {boolVars.length > 0 && (
+            <>
+              {boolVars.map(([name, v]) => (
+                <button
+                  key={name}
+                  onClick={() => {
+                    st.setNodeVar(ctxNode.id, name, { ...v, value: !v.value })
+                    closeMenu()
+                  }}
+                  style={{ fontFamily: 'var(--font-mono)', fontSize: 11 }}
+                >
+                  {name}: {String(v.value)} → {String(!v.value)}
+                </button>
+              ))}
+              <hr />
+            </>
+          )}
+          {nodeData && (
+            <button
+              onClick={() => {
+                st.setNodeStatus(ctxNode.id, !down)
+                closeMenu()
+              }}
+            >
+              {down ? 'Marcar operacional' : 'Marcar fora do ar'}
+            </button>
+          )}
           <button
             onClick={() => {
               closeMenu()
@@ -441,7 +474,13 @@ export function FlowCanvas() {
         onReconnect={handleReconnect}
         onNodeClick={(_e, node) => {
           // modo automático: clicar num nó dispara o evento que segue as setas
-          if (autoMode && node.type === 'arch') useStore.getState().firePulse(node.id)
+          if (autoMode && node.type === 'arch') {
+            if ((node.data as ArchNodeData).status === 'down') {
+              toast('Este nó está fora do ar — o evento não parte daqui.', 'error')
+              return
+            }
+            useStore.getState().firePulse(node.id)
+          }
         }}
         onNodeDoubleClick={(_e, node) => {
           if (!presentation) openNodeRename(node.id)

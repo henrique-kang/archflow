@@ -4,6 +4,7 @@ import { useShallow } from 'zustand/react/shallow'
 import type { OrthoEdge, Side, XY } from '../../model/types'
 import { AUTO_EDGE_COLOR } from '../../model/types'
 import { onDark, withAlpha } from '../../lib/utils'
+import { edgeActive, interpolate, whenLabel } from '../../lib/vars'
 import { ALL_AUTO, ALL_FLOWS, pauseHistory, resumeHistory, useStore } from '../../store/store'
 import { anchorShiftsCached } from './anchors'
 import { markGestureEnd } from './gestureState'
@@ -113,6 +114,10 @@ function OrthoEdgeViewInner(props: EdgeProps<OrthoEdge>) {
         else if (hopIndices.some((i) => i < step)) stepState = 'past'
         else stepState = 'future'
       }
+      // condição × vars do nó de origem (aresta dormente = condição não vale)
+      const edge = s.edges.find((e) => e.id === id)
+      const srcNode = edge ? s.nodes.find((n) => n.id === edge.source) : undefined
+      const dormant = edge ? !edgeActive(edge, srcNode) : false
       return {
         dimmed: s.activeFlowId ? !inActive : false,
         animColor,
@@ -121,6 +126,9 @@ function OrthoEdgeViewInner(props: EdgeProps<OrthoEdge>) {
         playing: s.playing,
         speed: s.speed,
         stepState,
+        dormant,
+        whenTag: edge ? whenLabel(edge) : null,
+        labelText: label != null ? interpolate(String(label), s.variables) : null,
       }
     }),
   )
@@ -377,6 +385,7 @@ function OrthoEdgeViewInner(props: EdgeProps<OrthoEdge>) {
           running && !flowState.playing && flowState.stepState === null ? 'is-paused' : '',
           flowState.dimmed ? 'af-dim-edge' : '',
           semiDim ? 'af-semi-dim' : '',
+          flowState.dormant ? 'af-dormant' : '',
         ]
           .filter(Boolean)
           .join(' ')}
@@ -471,7 +480,22 @@ function OrthoEdgeViewInner(props: EdgeProps<OrthoEdge>) {
             onPointerMove={onPointerMove}
             onPointerUp={onPointerUp}
           >
-            {String(label)}
+            {flowState.labelText ?? String(label)}
+          </div>
+        ) : null}
+        {flowState.whenTag ? (
+          <div
+            className={`af-when-chip${flowState.dormant ? ' is-off' : ''}${flowState.dimmed ? ' af-dim' : ''}`}
+            style={{
+              transform: `translate(-50%, -50%) translate(${pointAlong(pts, 0.16).x}px, ${pointAlong(pts, 0.16).y}px)`,
+            }}
+            title={
+              flowState.dormant
+                ? 'Condição não satisfeita — a aresta está dormente'
+                : 'Condição satisfeita — o evento segue por aqui'
+            }
+          >
+            {flowState.whenTag}
           </div>
         ) : null}
         {flowState.hops && flowState.badgeColor ? (

@@ -117,6 +117,18 @@ styles/global.css     Todos os tokens (OKLCH) e estilos. Ver DESIGN.md.
   `.af-semi-dim`, o pacote circula só no hop atual.
 - Histórico local de versões: `archflow.history.v*` (≤12 snapshots, ≥90s entre eles), restauração
   pelo menu ⋯; evento `storage` avisa sobre outra aba editando.
+- **Config e condição (nível 1, nunca simulador)**: nós têm `vars {value, source}`; arestas têm
+  `when {var, equals}` comparado contra o nó de ORIGEM (lib/vars.ts). O modo automático decide em
+  `pulsePhasesFrom` (lib/graph.ts): fases de lookup (round-trip visual quando a var tem `source`),
+  deadEnds quando o alvo está `status: down`. Arestas dormentes ganham `.af-dormant` + chip.
+- **Interpolação** `{{nome}}` (lib/vars.ts) usa `variables` do diagrama — aplicada no RENDER
+  (nunca muda o valor armazenado): rótulos, payloads, notas, transform e exporter.
+- **Inspetor de Pacote** (panels/InspectorCard.tsx): segue `stepIndex` ou `liveHop` (publicado
+  pela animação SÓ quando o hop muda). Cenários = snapshot de variables+nodeVars+down;
+  `applyScenario` é um set único (1 undo).
+- **CUIDADO com selectors zustand**: retornar array/objeto NOVO por snapshot (mesmo com
+  useShallow, se os ITENS são objetos novos) causa "Maximum update depth". Padrão seguro:
+  selecionar referências estáveis (s.nodes) e derivar com useMemo — já mordeu duas vezes.
 
 ## Testes manuais/headless
 

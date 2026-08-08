@@ -2,6 +2,7 @@ import { useRef, useState } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 import {
   IcCheck,
+  IcEye,
   IcPause,
   IcPencil,
   IcPlay,
@@ -31,12 +32,19 @@ const FLOW_SWATCHES = [
 ]
 
 function Transport() {
-  const { activeFlowId, playing, speed } = useStore(
-    useShallow((s) => ({ activeFlowId: s.activeFlowId, playing: s.playing, speed: s.speed })),
+  const { activeFlowId, playing, speed, inspectorOpen } = useStore(
+    useShallow((s) => ({
+      activeFlowId: s.activeFlowId,
+      playing: s.playing,
+      speed: s.speed,
+      inspectorOpen: s.inspectorOpen,
+    })),
   )
   const setPlaying = useStore((s) => s.setPlaying)
   const setSpeed = useStore((s) => s.setSpeed)
+  const setInspector = useStore((s) => s.setInspector)
   if (!activeFlowId) return null
+  const singleFlow = activeFlowId !== ALL_FLOWS && activeFlowId !== ALL_AUTO
   return (
     <div className="af-transport">
       <button
@@ -46,6 +54,15 @@ function Transport() {
       >
         {playing ? <IcPause /> : <IcPlay />}
       </button>
+      {singleFlow && (
+        <button
+          className={`af-btn is-icon is-outline${inspectorOpen ? ' is-active' : ''}`}
+          onClick={() => setInspector(!inspectorOpen)}
+          title="Inspetor de pacote (o que acontece em cada hop)"
+        >
+          <IcEye size={14} />
+        </button>
+      )}
       <div className="af-speed">
         <input
           type="range"
@@ -274,6 +291,16 @@ function FlowRow({
               />
               <ColorPopover value={flow.color} onChange={(color) => updateFlow(flow.id, { color })} />
             </div>
+          </div>
+          <div className="af-field">
+            <label>Payload de exemplo (inspetor · aceita {'{{variáveis}}'})</label>
+            <textarea
+              className="af-input"
+              style={{ height: 64, padding: 6, fontFamily: 'var(--font-mono)', fontSize: 10.5, resize: 'vertical' }}
+              value={flow.payload ?? ''}
+              placeholder={'{"pedido": "{{pedido}}", "total": 189.90}'}
+              onChange={(e) => updateFlow(flow.id, { payload: e.target.value || undefined })}
+            />
           </div>
           <HopList flow={flow} />
           <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>

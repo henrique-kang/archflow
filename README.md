@@ -39,6 +39,15 @@ exemplo".
 - **Apresentar** (`F5` ou `Ctrl+.`): tela cheia, só canvas + seletor de fluxos. Teclas `1–9`
   trocam de fluxo, `0` = todos, `A` = automático; `←`/`→` navegam hop a hop (modo passo a
   passo). `Esc` sai. `Shift+1` enquadra o diagrama.
+- **Config e condições** (estilo Packet Tracer, sem simulação): um nó pode ter flags de config
+  (ex.: `usa_gateway_b`) — opcionalmente "buscadas" de outro nó, com round-trip visual — e as
+  arestas de saída podem depender delas (`[var = valor]` no canvas; caminho dormente fica
+  apagado). Alterne a flag pelo switch no painel ou pelo botão direito e dispare o evento de novo
+  para ver o outro caminho. Nós podem ser marcados **fora do ar**: o evento morre neles com ✕.
+- **Inspetor de Pacote** (👁 no transporte, na apresentação ou clicando no pacote): mostra, hop a
+  hop, o que o nó de destino faz com a mensagem, o payload de exemplo (antes/depois) e a nota da
+  etapa. **Variáveis** do diagrama (`{{pedido}}`) interpolam em rótulos, payloads e notas;
+  **cenários** salvam/aplicam conjuntos de variáveis, configs e estados de uma vez.
 - **Arquivos**: Exportar → YAML (versionável em git), SVG animado (fontes embutidas; visão atual
   ou todos os fluxos) ou PNG 2×. Importar aceita o mesmo YAML. Menu ⋯ guarda um histórico local
   de versões para restaurar.

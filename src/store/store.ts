@@ -11,8 +11,10 @@ import type {
   AnyNode,
   ArchNodeData,
   ArchType,
+  EdgeWhen,
   FlowDef,
   GroupNodeData,
+  NodeVar,
   OrthoEdge,
   Side,
   XY,
@@ -21,8 +23,8 @@ import { normalizeWaypoints } from '../canvas/edges/ortho'
 import { absRect, inflate, rectContains, sideFacing, sideMid } from '../canvas/geometry'
 import { defaultIconFor, typeLabel } from '../model/types'
 import { seedDoc } from '../model/seed'
-import { docToStore, orderNodes, storeToDoc, type Doc, type StoreShape } from '../model/yaml'
-import { pulseWavesFrom } from '../lib/graph'
+import { docToStore, orderNodes, safeVarKey, storeToDoc, type Doc, type StoreShape } from '../model/yaml'
+import { pulsePhasesFrom, type PulsePhase } from '../lib/graph'
 import { debounce, nextFlowColor, uid } from '../lib/utils'
 
 export const ALL_FLOWS = '__all__'
@@ -30,19 +32,19 @@ export const ALL_FLOWS = '__all__'
 export const ALL_AUTO = '__auto__'
 // Bumpar a versão da chave quando o diagrama de exemplo mudar: faz o app abrir
 // com o exemplo novo sem apagar o documento salvo anteriormente.
-const STORAGE_KEY = 'archflow.doc.v3'
-const HISTORY_KEY = 'archflow.history.v3'
+const STORAGE_KEY = 'archflow.doc.v4'
+const HISTORY_KEY = 'archflow.history.v4'
 
 interface Guides {
   x?: number
   y?: number
 }
 
-/** Evento do modo automático: ondas de arestas a partir do nó clicado. */
+/** Evento do modo automático: fases (ondas/consultas) a partir do nó clicado. */
 export interface Pulse {
   id: string
   originId: string
-  waves: string[][]
+  phases: PulsePhase[]
 }
 
 
@@ -63,6 +65,10 @@ export interface StoreState extends StoreShape {
   pulseEdges: Set<string>
   /** grupo destacado como alvo de drop durante um arraste */
   dropTargetId: string | null
+  /** inspetor de pacote aberto */
+  inspectorOpen: boolean
+  /** hop corrente da animação contínua (publicado pela animação ao trocar de hop) */
+  liveHop: { flowId: string; index: number } | null
 
   // ---- grafo ----
   onNodesChange: (changes: NodeChange<AnyNode>[]) => void
@@ -71,7 +77,15 @@ export interface StoreState extends StoreShape {
   updateNodeData: (id: string, patch: Partial<ArchNodeData & GroupNodeData>) => void
   updateEdge: (
     id: string,
-    patch: { label?: string; color?: string | null; dashed?: boolean; labelT?: number },
+    patch: {
+      label?: string
+      color?: string | null
+      dashed?: boolean
+      labelT?: number
+      when?: EdgeWhen | null
+      note?: string
+      weight?: number
+    },
   ) => void
   setWaypoints: (edgeId: string, wps: XY[]) => void
   /**
@@ -89,6 +103,18 @@ export interface StoreState extends StoreShape {
   toggleLock: (ids: string[]) => void
   bringToFront: (id: string) => void
   sendToBack: (id: string) => void
+  /** Define/remove uma var de config do nó (value null remove). */
+  setNodeVar: (nodeId: string, name: string, value: NodeVar | null) => void
+  /** Renomeia uma var do nó, atualizando as condições de aresta que a usam. */
+  renameNodeVar: (nodeId: string, from: string, to: string) => void
+  setNodeStatus: (nodeId: string, down: boolean) => void
+
+  // ---- variáveis e cenários ----
+  setVariable: (name: string, value: string) => void
+  deleteVariable: (name: string) => void
+  saveScenario: (name: string) => void
+  applyScenario: (id: string) => void
+  deleteScenario: (id: string) => void
 
   // ---- fluxos ----
   addFlow: () => string
@@ -114,6 +140,8 @@ export interface StoreState extends StoreShape {
   firePulse: (nodeId: string) => void
   endPulse: (id: string) => void
   setPulseEdges: (edges: Set<string>) => void
+  setInspector: (open: boolean) => void
+  setLiveHop: (v: { flowId: string; index: number } | null) => void
 
   // ---- documento ----
   exportDoc: () => Doc
@@ -121,7 +149,7 @@ export interface StoreState extends StoreShape {
   resetToSeed: () => void
 }
 
-type Tracked = Pick<StoreState, 'meta' | 'nodes' | 'edges' | 'flows'>
+type Tracked = Pick<StoreState, 'meta' | 'nodes' | 'edges' | 'flows' | 'variables' | 'scenarios'>
 
 /** Projeção estável do estado rastreado — ignora selected/dragging/measured. */
 function proj(state: Tracked): string {
@@ -130,6 +158,8 @@ function proj(state: Tracked): string {
     n: state.nodes.map((n) => [n.id, n.type, n.position.x, n.position.y, n.parentId ?? null, n.width ?? null, n.height ?? null, n.draggable ?? null, n.data]),
     e: state.edges.map((e) => [e.id, e.source, e.target, e.sourceHandle, e.targetHandle, e.label ?? null, e.data]),
     f: state.flows,
+    v: state.variables,
+    s: state.scenarios,
   })
 }
 
@@ -176,6 +206,8 @@ export const useStore = create<StoreState>()(
       dropTargetId: null,
       pulses: [],
       pulseEdges: new Set<string>(),
+      inspectorOpen: false,
+      liveHop: null,
 
       onNodesChange: (changes) => {
         const removed = new Set(changes.filter((c) => c.type === 'remove').map((c) => c.id))
@@ -239,6 +271,12 @@ export const useStore = create<StoreState>()(
             if (patch.labelT !== undefined) next.data = { ...next.data!, labelT: patch.labelT }
             if (patch.color !== undefined)
               next.data = { ...next.data!, color: patch.color === null ? undefined : patch.color }
+            if (patch.when !== undefined)
+              next.data = { ...next.data!, when: patch.when === null ? undefined : patch.when }
+            if (patch.note !== undefined)
+              next.data = { ...next.data!, note: patch.note.trim() ? patch.note : undefined }
+            if (patch.weight !== undefined)
+              next.data = { ...next.data!, weight: patch.weight === 1 ? undefined : patch.weight }
             return next
           }),
         })
@@ -391,6 +429,129 @@ export const useStore = create<StoreState>()(
         set({ nodes: orderNodes([node, ...rest]) })
       },
 
+      setNodeVar: (nodeId, name, value) => {
+        const st = get()
+        set({
+          nodes: st.nodes.map((n) => {
+            if (n.id !== nodeId || n.type !== 'arch') return n
+            const data = n.data as ArchNodeData
+            const vars = { ...(data.vars ?? {}) }
+            if (value === null) delete vars[name]
+            else vars[name] = value
+            return {
+              ...n,
+              data: { ...data, vars: Object.keys(vars).length ? vars : undefined },
+            } as AnyNode
+          }),
+          // remover a var limpa as condições de aresta que a usavam (sem when órfão)
+          ...(value === null
+            ? {
+                edges: st.edges.map((e) =>
+                  e.source === nodeId && e.data?.when?.var === name
+                    ? { ...e, data: { ...e.data, when: undefined } }
+                    : e,
+                ),
+              }
+            : {}),
+        })
+      },
+
+      renameNodeVar: (nodeId, from, to) => {
+        if (!to.trim() || from === to) return
+        const st = get()
+        // colisão: não sobrescrever silenciosamente uma var existente
+        const target = st.nodes.find((n) => n.id === nodeId)
+        if ((target?.data as ArchNodeData | undefined)?.vars?.[to]) return
+        set({
+          nodes: st.nodes.map((n) => {
+            if (n.id !== nodeId || n.type !== 'arch') return n
+            const data = n.data as ArchNodeData
+            if (!data.vars?.[from]) return n
+            const vars: Record<string, NodeVar> = {}
+            for (const [k, v] of Object.entries(data.vars)) vars[k === from ? to : k] = v
+            return { ...n, data: { ...data, vars } } as AnyNode
+          }),
+          edges: st.edges.map((e) =>
+            e.source === nodeId && e.data?.when?.var === from
+              ? { ...e, data: { ...e.data, when: { ...e.data.when, var: to } } }
+              : e,
+          ),
+        })
+      },
+
+      setNodeStatus: (nodeId, down) => {
+        set({
+          nodes: get().nodes.map((n) => {
+            if (n.id !== nodeId || n.type !== 'arch') return n
+            const data = n.data as ArchNodeData
+            return { ...n, data: { ...data, status: down ? 'down' : undefined } } as AnyNode
+          }),
+        })
+      },
+
+      setVariable: (name, value) => {
+        if (!safeVarKey(name)) return
+        set({ variables: { ...get().variables, [name]: value.slice(0, 200) } })
+      },
+
+      deleteVariable: (name) => {
+        const variables = { ...get().variables }
+        delete variables[name]
+        set({ variables })
+      },
+
+      saveScenario: (name) => {
+        const st = get()
+        const nodeVars: Record<string, Record<string, string | boolean>> = {}
+        const down: string[] = []
+        for (const n of st.nodes) {
+          if (n.type !== 'arch') continue
+          const data = n.data as ArchNodeData
+          if (data.vars && Object.keys(data.vars).length) {
+            nodeVars[n.id] = Object.fromEntries(Object.entries(data.vars).map(([k, v]) => [k, v.value]))
+          }
+          if (data.status === 'down') down.push(n.id)
+        }
+        set({
+          scenarios: [
+            ...st.scenarios,
+            { id: uid('sc_'), name: name.trim() || `Cenário ${st.scenarios.length + 1}`, variables: { ...st.variables }, nodeVars, down },
+          ],
+        })
+      },
+
+      applyScenario: (id) => {
+        const st = get()
+        const sc = st.scenarios.find((s) => s.id === id)
+        if (!sc) return
+        const downSet = new Set(sc.down)
+        set({
+          // cenário é SNAPSHOT: substitui as variáveis, não faz merge
+          variables: { ...sc.variables },
+          nodes: st.nodes.map((n) => {
+            if (n.type !== 'arch') return n
+            const data = n.data as ArchNodeData
+            const overrides = Object.prototype.hasOwnProperty.call(sc.nodeVars, n.id)
+              ? sc.nodeVars[n.id]
+              : undefined
+            let vars = data.vars
+            if (overrides) {
+              vars = { ...(vars ?? {}) }
+              for (const [k, v] of Object.entries(overrides)) {
+                vars[k] = vars[k] ? { ...vars[k], value: v } : { value: v }
+              }
+            }
+            const status = downSet.has(n.id) ? ('down' as const) : undefined
+            if (vars === data.vars && status === data.status) return n
+            return { ...n, data: { ...data, vars, status } } as AnyNode
+          }),
+        })
+      },
+
+      deleteScenario: (id) => {
+        set({ scenarios: get().scenarios.filter((s) => s.id !== id) })
+      },
+
       addFlow: () => {
         const id = uid('f_')
         const flows = get().flows
@@ -501,9 +662,9 @@ export const useStore = create<StoreState>()(
       },
 
       firePulse: (nodeId) => {
-        const waves = pulseWavesFrom(nodeId, get().edges)
-        if (!waves.length) return
-        set({ pulses: [...get().pulses, { id: uid('p_'), originId: nodeId, waves }] })
+        const phases = pulsePhasesFrom(nodeId, get().edges, get().nodes)
+        if (!phases.length) return
+        set({ pulses: [...get().pulses, { id: uid('p_'), originId: nodeId, phases }] })
       },
 
       endPulse: (id) => {
@@ -511,12 +672,27 @@ export const useStore = create<StoreState>()(
       },
 
       setPulseEdges: (edges) => set({ pulseEdges: edges }),
+      setInspector: (open) => set({ inspectorOpen: open }),
+      setLiveHop: (v) => {
+        const cur = get().liveHop
+        if (cur?.flowId === v?.flowId && cur?.index === v?.index) return
+        set({ liveHop: v })
+      },
 
       exportDoc: () => storeToDoc(get()),
 
       importDoc: (doc) => {
         const shape = docToStore(doc)
-        set({ ...shape, activeFlowId: null, pickingFlowId: null, stepIndex: null })
+        set({
+          ...shape,
+          activeFlowId: null,
+          pickingFlowId: null,
+          stepIndex: null,
+          pulses: [],
+          pulseEdges: new Set(),
+          liveHop: null,
+          inspectorOpen: false,
+        })
         useStore.temporal.getState().clear()
       },
 
@@ -526,7 +702,14 @@ export const useStore = create<StoreState>()(
     }),
     {
       limit: 100,
-      partialize: (s): Tracked => ({ meta: s.meta, nodes: s.nodes, edges: s.edges, flows: s.flows }),
+      partialize: (s): Tracked => ({
+        meta: s.meta,
+        nodes: s.nodes,
+        edges: s.edges,
+        flows: s.flows,
+        variables: s.variables,
+        scenarios: s.scenarios,
+      }),
       equality: (past, cur) => proj(past as Tracked) === proj(cur as Tracked),
     },
   ),

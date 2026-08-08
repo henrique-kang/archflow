@@ -2,8 +2,10 @@ import { ViewportPortal } from '@xyflow/react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 import { onDark, withAlpha } from '../lib/utils'
+import type { XY } from '../model/types'
 import { AUTO_EDGE_COLOR as AUTO_COLOR } from '../model/types'
 import { ALL_AUTO, ALL_FLOWS, useStore } from '../store/store'
+import { absRect } from './geometry'
 
 /** distância (px) do terminal em que o nó "esquenta" quando o pacote passa. */
 const HEAT_RADIUS = 26
@@ -21,8 +23,9 @@ interface PathCache {
 
 /**
  * Pacotes que percorrem o caminho exato das arestas, com highlight dos nós
- * por onde passam (estilo Syncitect). No modo automático, nada anima sozinho:
- * clicar num nó dispara um evento que cascateia seguindo as setas.
+ * por onde passam. No modo automático, clicar num nó dispara um evento que
+ * cascateia seguindo as setas, respeitando condições (`when` × vars do nó),
+ * consultas de config (round-trip visual) e nós fora do ar (✕).
  * Atualização imperativa via rAF — sem re-render por frame.
  */
 export function FlowPackets() {
@@ -36,6 +39,7 @@ export function FlowPackets() {
   )
   const flows = useStore((s) => s.flows)
   const edges = useStore((s) => s.edges)
+  const nodes = useStore((s) => s.nodes)
   const pulses = useStore((s) => s.pulses)
 
   const [reduced, setReduced] = useState(
@@ -62,13 +66,40 @@ export function FlowPackets() {
     return m
   }, [edges])
 
-  /** chaves dos pacotes a renderizar: fluxo (modos normais) ou evento×aresta (auto). */
+  const edgeWeight = useMemo(() => {
+    const m = new Map<string, number>()
+    for (const e of edges) m.set(e.id, e.data?.weight ?? 1)
+    return m
+  }, [edges])
+
+  /** centros absolutos dos nós (para os round-trips de consulta). */
+  const nodeCenter = useMemo(() => {
+    const byId = new Map(nodes.map((n) => [n.id, n]))
+    const m = new Map<string, XY>()
+    for (const n of nodes) {
+      const r = absRect(n, byId)
+      m.set(n.id, { x: r.x + r.w / 2, y: r.y + r.h / 2 })
+    }
+    return m
+  }, [nodes])
+
+  /** chaves dos pacotes a renderizar. */
   const packets = useMemo(() => {
-    if (auto)
-      return pulses.flatMap((p) =>
-        p.waves.flat().map((eid) => ({ key: `${p.id}:${eid}`, color: edgeColor.get(eid) ?? onDark(AUTO_COLOR) })),
-      )
-    return animFlows.map((f) => ({ key: f.id, color: onDark(f.color) }))
+    const list: { key: string; color: string; lookup?: boolean; clickable?: boolean }[] = []
+    if (auto) {
+      for (const p of pulses) {
+        p.phases.forEach((ph, i) => {
+          for (const eid of ph.edges)
+            list.push({ key: `${p.id}:${eid}`, color: edgeColor.get(eid) ?? onDark(AUTO_COLOR) })
+          ph.lookups.forEach((_, j) =>
+            list.push({ key: `${p.id}:lk:${i}:${j}`, color: '#7fb3e8', lookup: true }),
+          )
+        })
+      }
+      return list
+    }
+    for (const f of animFlows) list.push({ key: f.id, color: onDark(f.color), clickable: true })
+    return list
   }, [auto, pulses, animFlows, edgeColor])
 
   const packetRefs = useRef(new Map<string, HTMLDivElement>())
@@ -81,7 +112,7 @@ export function FlowPackets() {
   useEffect(() => {
     if (!reduced || !auto || pulses.length === 0) return
     const st = useStore.getState()
-    const all = new Set(pulses.flatMap((p) => p.waves.flat()))
+    const all = new Set(pulses.flatMap((p) => p.phases.flatMap((ph) => ph.edges)))
     st.setPulseEdges(all)
     const t = setTimeout(() => {
       const cur = useStore.getState()
@@ -134,11 +165,17 @@ export function FlowPackets() {
       }
     }
 
+    const setDead = (key: string, dead: boolean) => {
+      const el = packetRefs.current.get(key)
+      if (el) el.classList.toggle('is-dead', dead)
+    }
+
     const place = (key: string, edgeId: string | null, off: number) => {
       const el = packetRefs.current.get(key)
       if (!el) return
       if (!edgeId) {
         el.style.opacity = '0'
+        el.classList.remove('is-dead')
         return
       }
       const p = getPath(edgeId)
@@ -151,21 +188,34 @@ export function FlowPackets() {
       el.style.transform = `translate(${pt.x}px, ${pt.y}px)`
     }
 
+    const placeAt = (key: string, pos: XY | null) => {
+      const el = packetRefs.current.get(key)
+      if (!el) return
+      if (!pos) {
+        el.style.opacity = '0'
+        return
+      }
+      el.style.opacity = '1'
+      el.style.transform = `translate(${pos.x}px, ${pos.y}px)`
+    }
+
     const byId = new Map(edges.map((e) => [e.id, e]))
+    const effLen = (eid: string) => (getPath(eid)?.len ?? 0) * (edgeWeight.get(eid) ?? 1)
 
     const tick = (now: number) => {
       const dt = Math.min((now - last) / 1000, 0.1)
       last = now
 
       if (auto) {
-        // eventos disparados por clique: cada pulse cascateia em ondas
+        // eventos disparados por clique: fases de consulta e ondas de arestas
         const activeEdges = new Set<string>()
         const finished: string[] = []
         for (const pulse of pulses) {
-          const durations = pulse.waves.map((w) => {
-            let maxLen = 0
-            for (const eid of w) maxLen = Math.max(maxLen, getPath(eid)?.len ?? 0)
-            return Math.min(2.5, Math.max(0.7, maxLen / 300)) / speed
+          const durations = pulse.phases.map((ph) => {
+            if (ph.lookups.length) return 0.9 / speed
+            let maxEff = 0
+            for (const eid of ph.edges) maxEff = Math.max(maxEff, effLen(eid))
+            return Math.min(2.5, Math.max(0.7, maxEff / 300)) / speed
           })
           const GAP = 0.1 / speed
           const total = durations.reduce((a, b) => a + b + GAP, 0)
@@ -174,29 +224,63 @@ export function FlowPackets() {
           progress.current.set(pulse.id, t)
           if (t >= total) {
             finished.push(pulse.id)
-            for (const w of pulse.waves) for (const eid of w) place(`${pulse.id}:${eid}`, null, 0)
+            pulse.phases.forEach((ph, i) => {
+              for (const eid of ph.edges) place(`${pulse.id}:${eid}`, null, 0)
+              ph.lookups.forEach((_, j) => placeAt(`${pulse.id}:lk:${i}:${j}`, null))
+            })
             continue
           }
           let acc = 0
-          for (let k = 0; k < pulse.waves.length; k++) {
+          for (let k = 0; k < pulse.phases.length; k++) {
+            const ph = pulse.phases[k]
             const dur = durations[k]
             const local = t - acc
             const active = local >= 0 && local < dur
-            const frac = active ? local / dur : 0
-            for (const eid of pulse.waves[k]) {
+            const phaseFrac = active ? local / dur : 0
+
+            if (ph.lookups.length) {
+              ph.lookups.forEach((lk, j) => {
+                const key = `${pulse.id}:lk:${k}:${j}`
+                if (!active) {
+                  placeAt(key, null)
+                  return
+                }
+                const a = nodeCenter.get(lk.from)
+                const b = nodeCenter.get(lk.to)
+                if (!a || !b) return
+                // ida e volta: nó → origem da config → nó
+                const f = phaseFrac < 0.5 ? phaseFrac * 2 : (1 - phaseFrac) * 2
+                placeAt(key, { x: a.x + (b.x - a.x) * f, y: a.y + (b.y - a.y) * f })
+                if (phaseFrac > 0.4 && phaseFrac < 0.6) heat(lk.to, '#7fb3e8', now)
+              })
+              acc += dur + GAP
+              continue
+            }
+
+            const maxEff = ph.edges.reduce((m, eid) => Math.max(m, effLen(eid)), 0) || 1
+            for (const eid of ph.edges) {
               const key = `${pulse.id}:${eid}`
               const p = getPath(eid)
               const len = p?.len ?? 0
               if (active && p) {
                 activeEdges.add(eid)
+                // aresta mais "pesada" leva mais tempo dentro da onda
+                const own = Math.max(0.05, effLen(eid) / maxEff)
+                const frac = Math.min(1, phaseFrac / own)
                 const off = frac * len
                 place(key, eid, off)
                 const e = byId.get(eid)
                 const color = edgeColor.get(eid) ?? onDark(AUTO_COLOR)
+                const dead = ph.deadEnds.includes(eid)
                 if (e) {
                   if (off < HEAT_RADIUS) heat(e.source, color, now)
-                  if (off > len - HEAT_RADIUS) heat(e.target, color, now)
+                  if (off > len - HEAT_RADIUS) heat(e.target, dead ? '#ef5350' : color, now)
                 }
+                setDead(key, dead && frac > 0.9)
+              } else if (ph.deadEnds.includes(eid) && local >= dur && p) {
+                // pacote morto fica cravado com ✕ no nó fora do ar até o fim do evento
+                place(key, eid, p.len)
+                setDead(key, true)
               } else {
                 place(key, null, 0)
               }
@@ -228,9 +312,10 @@ export function FlowPackets() {
               place(flow.id, null, 0)
               continue
             }
+            const w = edgeWeight.get(eid) ?? 1
             const cycle = p.len + 90
             let pos = progress.current.get(flow.id) ?? 0
-            pos = (pos + dt * (p.len / Math.max(1.2, targetDuration(p.len) / 2)) * speed) % cycle
+            pos = (pos + dt * (p.len / (Math.max(1.2, targetDuration(p.len * w) / 2) * w)) * speed) % cycle
             progress.current.set(flow.id, pos)
             if (pos >= p.len) {
               place(flow.id, null, 0)
@@ -245,19 +330,21 @@ export function FlowPackets() {
             continue
           }
 
+          // espaço "efetivo": comprimento × peso (hop pesado = mais lento)
           const paths = flow.edgeIds.map(getPath)
-          let total = 0
-          for (const p of paths) total += p?.len ?? 0
-          if (total === 0) {
+          let effTotal = 0
+          for (let i = 0; i < paths.length; i++)
+            effTotal += (paths[i]?.len ?? 0) * (edgeWeight.get(flow.edgeIds[i]) ?? 1)
+          if (effTotal === 0) {
             place(flow.id, null, 0)
             continue
           }
-          const velocity = (total / targetDuration(total)) * speed
-          const cycle = total + velocity * 0.8
+          const velocity = (effTotal / targetDuration(effTotal)) * speed
+          const cycle = effTotal + velocity * 0.8
           let pos = progress.current.get(flow.id) ?? 0
           if (playing) pos = (pos + dt * velocity) % cycle
           progress.current.set(flow.id, pos)
-          if (pos >= total) {
+          if (pos >= effTotal) {
             place(flow.id, null, 0)
             continue
           }
@@ -266,17 +353,22 @@ export function FlowPackets() {
           for (let i = 0; i < paths.length; i++) {
             const p = paths[i]
             if (!p) continue
-            if (off <= p.len) {
-              place(flow.id, flow.edgeIds[i], off)
+            const w = edgeWeight.get(flow.edgeIds[i]) ?? 1
+            const eff = p.len * w
+            if (off <= eff) {
+              const realOff = off / w
+              place(flow.id, flow.edgeIds[i], realOff)
+              if (animFlows.length === 1)
+                useStore.getState().setLiveHop({ flowId: flow.id, index: i })
               const e = byId.get(flow.edgeIds[i])
               if (e) {
-                if (off < HEAT_RADIUS) heat(e.source, color, now)
-                if (off > p.len - HEAT_RADIUS) heat(e.target, color, now)
+                if (realOff < HEAT_RADIUS) heat(e.source, color, now)
+                if (realOff > p.len - HEAT_RADIUS) heat(e.target, color, now)
               }
               placed = true
               break
             }
-            off -= p.len
+            off -= eff
           }
           if (!placed) place(flow.id, null, 0)
         }
@@ -299,7 +391,7 @@ export function FlowPackets() {
       }
       hotUntil.current.clear()
     }
-  }, [animFlows, pulses, auto, playing, speed, stepIndex, reduced, edges, edgeColor])
+  }, [animFlows, pulses, auto, playing, speed, stepIndex, reduced, edges, edgeColor, edgeWeight, nodeCenter])
 
   // saiu do modo auto ou acabaram os eventos → limpa o realce das arestas
   useEffect(() => {
@@ -308,6 +400,16 @@ export function FlowPackets() {
       useStore.getState().setPulseEdges(new Set())
     }
   }, [auto, pulses])
+
+  // hop ao vivo só faz sentido com um fluxo único ativo
+  useEffect(() => {
+    if (animFlows.length !== 1) useStore.getState().setLiveHop(null)
+  }, [animFlows])
+
+  // as escalas de progresso do modo passo e do contínuo são diferentes — zera ao alternar
+  useEffect(() => {
+    progress.current.clear()
+  }, [stepIndex === null])
 
   if (reduced || packets.length === 0) return null
 
@@ -320,10 +422,12 @@ export function FlowPackets() {
             if (el) packetRefs.current.set(p.key, el)
             else packetRefs.current.delete(p.key)
           }}
-          className="af-packet"
+          className={`af-packet${p.lookup ? ' is-lookup' : ''}${p.clickable ? ' is-clickable' : ''}`}
+          onClick={p.clickable ? () => useStore.getState().setInspector(true) : undefined}
+          title={p.clickable ? 'Inspecionar pacote' : undefined}
           style={{
             background: p.color,
-            boxShadow: `0 0 10px 3px ${withAlpha(p.color, 0.5)}, 0 0 3px ${withAlpha(p.color, 0.9)}`,
+            boxShadow: `0 0 10px 3px ${withAlpha(p.color.startsWith('var') ? '#7fb3e8' : p.color, 0.5)}, 0 0 3px ${withAlpha(p.color.startsWith('var') ? '#7fb3e8' : p.color, 0.9)}`,
             opacity: 0,
           }}
         />

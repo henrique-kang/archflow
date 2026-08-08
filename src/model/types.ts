@@ -33,17 +33,43 @@ export interface XY {
 
 export type Side = 'l' | 'r' | 't' | 'b'
 
+/** Valor de uma variável de configuração de nó. */
+export interface NodeVar {
+  value: string | boolean
+  /** id de outro nó de onde a config "vem" (round-trip visual na animação). */
+  source?: string
+}
+
 export interface ArchNodeData extends Record<string, unknown> {
   label: string
   archType: ArchType
   /** Cor custom (hex); quando ausente, usa a cor do tipo. */
   color?: string
   icon?: IconId
+  /** Config declarada do nó (decide arestas condicionais). */
+  vars?: Record<string, NodeVar>
+  /** 'down' = fora: eventos que chegam morrem aqui. Ausente = operacional. */
+  status?: 'down'
+  /** O que este nó faz com a mensagem (inspetor de pacote). */
+  transform?: string
+  /** Payload de exemplo antes/depois da transformação (snippets estáticos). */
+  payloadBefore?: string
+  payloadAfter?: string
+  /** Ficha técnica (documentação viva). */
+  tech?: string
+  owner?: string
+  link?: string
 }
 
 export interface GroupNodeData extends Record<string, unknown> {
   label: string
   color?: string
+}
+
+/** Condição de uma aresta: compara uma var declarada do nó de ORIGEM. */
+export interface EdgeWhen {
+  var: string
+  equals: string | boolean
 }
 
 export interface OrthoEdgeData extends Record<string, unknown> {
@@ -53,6 +79,12 @@ export interface OrthoEdgeData extends Record<string, unknown> {
   waypoints: XY[]
   /** Posição do rótulo ao longo do caminho (fração 0–1; padrão 0.5). */
   labelT?: number
+  /** A aresta só "vale" quando a var do nó de origem tem este valor. */
+  when?: EdgeWhen
+  /** Nota do hop (aparece no inspetor / passo a passo). */
+  note?: string
+  /** Duração relativa do hop na animação (1 = normal; 3 = três vezes mais lento). */
+  weight?: number
 }
 
 export type ArchNode = Node<ArchNodeData, 'arch'>
@@ -66,6 +98,20 @@ export interface FlowDef {
   name: string
   color: string
   edgeIds: string[]
+  /** Payload de exemplo que "viaja" no fluxo (inspetor de pacote). */
+  payload?: string
+}
+
+/** Cenário: snapshot nomeado de variáveis, configs de nó e estados. */
+export interface Scenario {
+  id: string
+  name: string
+  /** variáveis do diagrama (interpolação) */
+  variables: Record<string, string>
+  /** vars por nó (nodeId → var → valor) */
+  nodeVars: Record<string, Record<string, string | boolean>>
+  /** nós fora do ar neste cenário */
+  down: string[]
 }
 
 export interface DiagramMeta {
