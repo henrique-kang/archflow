@@ -10,6 +10,8 @@ import { absRect } from './geometry'
 
 /** distância (px) do terminal em que o nó "esquenta" quando o pacote passa. */
 const HEAT_RADIUS = 26
+/** pausa do pacote ao CHEGAR num nó, antes de seguir ao próximo hop (s, em 1×). */
+const HOP_DWELL = 0.45
 
 /** Duração-alvo de um ciclo em função do comprimento (fluxos longos não viram novela). */
 function targetDuration(len: number): number {
@@ -230,7 +232,8 @@ export function FlowPackets() {
             for (const eid of ph.edges) maxEff = Math.max(maxEff, effLen(eid))
             return Math.min(2.5, Math.max(0.7, maxEff / 300)) / speed
           })
-          const GAP = 0.1 / speed
+          // gap = respiro nos nós de chegada antes da próxima onda disparar
+          const GAP = 0.45 / speed
           const total = durations.reduce((a, b) => a + b + GAP, 0)
           let t = progress.current.get(pulse.id) ?? 0
           if (playing) t += dt
@@ -270,6 +273,7 @@ export function FlowPackets() {
               continue
             }
 
+            const inGap = local >= dur && local < dur + GAP
             const maxEff = ph.edges.reduce((m, eid) => Math.max(m, effLen(eid)), 0) || 1
             for (const eid of ph.edges) {
               const key = `${pulse.id}:${eid}`
@@ -294,6 +298,11 @@ export function FlowPackets() {
                 // pacote morto fica cravado com ✕ no nó fora do ar até o fim do evento
                 place(key, eid, p.len)
                 setDead(key, true)
+              } else if (inGap && p) {
+                // chegou: respira no nó de chegada (glow parado) até a próxima onda
+                place(key, eid, p.len)
+                const e = byId.get(eid)
+                if (e) heat(e.target, edgeColor.get(eid) ?? onDark(AUTO_COLOR), now)
               } else {
                 place(key, null, 0)
               }
@@ -362,9 +371,9 @@ export function FlowPackets() {
           // espaço "efetivo": comprimento × peso (hop pesado = mais lento)
           const paths = hopIds.map(getPath)
           const blockedIndex = plan.blockedAt ?? -1
+          const travelCount = blockedIndex >= 0 ? blockedIndex : paths.length
           let effTotal = 0
-          for (let i = 0; i < paths.length; i++) {
-            if (blockedIndex >= 0 && i >= blockedIndex) break
+          for (let i = 0; i < travelCount; i++) {
             effTotal += (paths[i]?.len ?? 0) * (edgeWeight.get(hopIds[i]) ?? 1)
           }
           if (effTotal === 0) {
@@ -380,12 +389,16 @@ export function FlowPackets() {
             continue
           }
           const velocity = (effTotal / targetDuration(effTotal)) * speed
+          // pausa no nó de chegada entre um hop e o próximo (unidades no espaço do pos)
+          const dwell = (effTotal / targetDuration(effTotal)) * HOP_DWELL
+          const boundaries = Math.max(0, travelCount - 1)
+          const walkTotal = effTotal + dwell * boundaries
           const hold = blockedIndex >= 0 ? velocity * 1.6 : velocity * 0.8
-          const cycle = effTotal + hold
+          const cycle = walkTotal + hold
           let pos = progress.current.get(flow.id) ?? 0
           if (playing) pos = (pos + dt * velocity) % cycle
           progress.current.set(flow.id, pos)
-          if (pos >= effTotal) {
+          if (pos >= walkTotal) {
             if (blockedIndex >= 0) {
               // segura no início do hop dormente, marcado com ⚠
               place(flow.id, hopIds[blockedIndex], 0)
@@ -400,17 +413,17 @@ export function FlowPackets() {
           setBlocked(flow.id, false)
           let off = pos
           let placed = false
-          for (let i = 0; i < paths.length; i++) {
+          for (let i = 0; i < travelCount; i++) {
             const p = paths[i]
             if (!p) continue
             const w = edgeWeight.get(hopIds[i]) ?? 1
             const eff = p.len * w
+            const e = byId.get(hopIds[i])
             if (off <= eff) {
               const realOff = off / w
               place(flow.id, hopIds[i], realOff)
               if (animFlows.length === 1)
                 useStore.getState().setLiveHop({ flowId: flow.id, index: i })
-              const e = byId.get(hopIds[i])
               if (e) {
                 if (realOff < HEAT_RADIUS) heat(e.source, color, now)
                 if (realOff > p.len - HEAT_RADIUS) heat(e.target, color, now)
@@ -419,6 +432,18 @@ export function FlowPackets() {
               break
             }
             off -= eff
+            if (i < travelCount - 1) {
+              if (off <= dwell) {
+                // chegou: respira no nó (glow parado) antes de seguir ao próximo hop
+                place(flow.id, hopIds[i], p.len)
+                if (animFlows.length === 1)
+                  useStore.getState().setLiveHop({ flowId: flow.id, index: i })
+                if (e) heat(e.target, color, now)
+                placed = true
+                break
+              }
+              off -= dwell
+            }
           }
           if (!placed) place(flow.id, null, 0)
         }

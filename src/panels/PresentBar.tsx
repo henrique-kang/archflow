@@ -1,6 +1,8 @@
+import { useState } from 'react'
 import { useShallow } from 'zustand/react/shallow'
-import { IcEye, IcPause, IcPlay, IcX } from '../icons/ui'
+import { IcEye, IcLayers, IcPause, IcPlay, IcX } from '../icons/ui'
 import { flowPlan } from '../lib/flowPlan'
+import { toast } from '../lib/toast'
 import { onDark } from '../lib/utils'
 import { ALL_AUTO, ALL_FLOWS, useStore } from '../store/store'
 
@@ -26,6 +28,9 @@ export function PresentBar() {
     })),
   )
   const inspectorOpen = useStore((s) => s.inspectorOpen)
+  const scenarios = useStore((s) => s.scenarios)
+  const applyScenario = useStore((s) => s.applyScenario)
+  const [scOpen, setScOpen] = useState(false)
   // total de hops EFETIVOS (variantes por condição)
   const planLen = useStore((s) => {
     const f = s.flows.find((f) => f.id === s.activeFlowId)
@@ -66,6 +71,36 @@ export function PresentBar() {
       >
         Auto
       </button>
+      {scenarios.length > 0 && (
+        <div style={{ position: 'relative' }}>
+          <button
+            className={`af-chip${scOpen ? ' is-active' : ''}`}
+            onClick={() => setScOpen((v) => !v)}
+            title="Aplicar um cenário (variáveis, configs e estados)"
+          >
+            <IcLayers size={12} /> Cenário
+          </button>
+          {scOpen && (
+            <div
+              className="af-menu"
+              style={{ position: 'absolute', bottom: 'calc(100% + 10px)', left: 0, minWidth: 230 }}
+            >
+              {scenarios.map((sc) => (
+                <button
+                  key={sc.id}
+                  onClick={() => {
+                    applyScenario(sc.id)
+                    toast(`Cenário aplicado: ${sc.name}`)
+                    setScOpen(false)
+                  }}
+                >
+                  {sc.name}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
       <div className="af-divider" />
       {activeFlow && (
         <>

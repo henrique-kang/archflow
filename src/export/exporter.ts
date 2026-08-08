@@ -267,25 +267,45 @@ export function buildSvg(opts: ExportOptions = {}): string {
     )
   }
 
-  // pacotes animados (SMIL) — seguem hop a hop o caminho exato
+  // pacotes animados (SMIL) — seguem hop a hop, com respiro em cada nó de chegada
   for (const f of smilFlows) {
     const hopDs: string[] = []
-    let total = 0
+    const lens: number[] = []
     for (const eid of f.edgeIds) {
       const route = routes.get(eid)
       if (!route) continue
       hopDs.push(route.d)
-      total += polylineLength(route.pts)
+      lens.push(polylineLength(route.pts))
     }
+    const total = lens.reduce((a, b) => a + b, 0)
     if (!hopDs.length || total === 0) continue
     // mesma normalização do app: fluxos longos não viram novela (~4–12s por ciclo)
     const travel = Math.min(12, Math.max(4, total / 260)) / s.speed
-    const dur = travel + 0.9
-    const kt = (travel / dur).toFixed(4)
+    const v = total / travel
+    const dwell = 0.45 / s.speed
+    const durTotal = travel + dwell * Math.max(0, lens.length - 1) + 0.9
+    const keyPoints: string[] = ['0']
+    const keyTimes: string[] = ['0']
+    let accL = 0
+    let t = 0
+    for (let i = 0; i < lens.length; i++) {
+      accL += lens[i]
+      t += lens[i] / v
+      const frac = (accL / total).toFixed(4)
+      keyPoints.push(frac)
+      keyTimes.push((t / durTotal).toFixed(4))
+      if (i < lens.length - 1) {
+        t += dwell
+        keyPoints.push(frac)
+        keyTimes.push((t / durTotal).toFixed(4))
+      }
+    }
+    keyPoints.push('1')
+    keyTimes.push('1')
     const c = onDark(f.color)
     parts.push(
       `<circle r="6" fill="${c}" stroke="${withAlpha(c, 0.35)}" stroke-width="5">` +
-        `<animateMotion dur="${dur.toFixed(3)}s" repeatCount="indefinite" path="${hopDs.join(' ')}" keyPoints="0;1;1" keyTimes="0;${kt};1" calcMode="linear"/>` +
+        `<animateMotion dur="${durTotal.toFixed(3)}s" repeatCount="indefinite" path="${hopDs.join(' ')}" keyPoints="${keyPoints.join(';')}" keyTimes="${keyTimes.join(';')}" calcMode="linear"/>` +
         `</circle>`,
     )
   }
