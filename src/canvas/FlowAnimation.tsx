@@ -2,6 +2,7 @@ import { ViewportPortal } from '@xyflow/react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 import { onDark, withAlpha } from '../lib/utils'
+import { edgeActive } from '../lib/vars'
 import type { XY } from '../model/types'
 import { AUTO_EDGE_COLOR as AUTO_COLOR } from '../model/types'
 import { ALL_AUTO, ALL_FLOWS, useStore } from '../store/store'
@@ -71,6 +72,16 @@ export function FlowPackets() {
     for (const e of edges) m.set(e.id, e.data?.weight ?? 1)
     return m
   }, [edges])
+
+  /** arestas dormentes (condição não satisfeita pela config atual). */
+  const dormantEdges = useMemo(() => {
+    const byId = new Map(nodes.map((n) => [n.id, n]))
+    const set = new Set<string>()
+    for (const e of edges) {
+      if (e.data?.when && !edgeActive(e, byId.get(e.source))) set.add(e.id)
+    }
+    return set
+  }, [edges, nodes])
 
   /** centros absolutos dos nós (para os round-trips de consulta). */
   const nodeCenter = useMemo(() => {
@@ -168,6 +179,11 @@ export function FlowPackets() {
     const setDead = (key: string, dead: boolean) => {
       const el = packetRefs.current.get(key)
       if (el) el.classList.toggle('is-dead', dead)
+    }
+
+    const setBlocked = (key: string, blocked: boolean) => {
+      const el = packetRefs.current.get(key)
+      if (el) el.classList.toggle('is-blocked', blocked)
     }
 
     const place = (key: string, edgeId: string | null, off: number) => {
@@ -312,6 +328,13 @@ export function FlowPackets() {
               place(flow.id, null, 0)
               continue
             }
+            // hop dormente: a história não passa por aqui com a config atual
+            if (dormantEdges.has(eid)) {
+              place(flow.id, eid, 0)
+              setBlocked(flow.id, true)
+              continue
+            }
+            setBlocked(flow.id, false)
             const w = edgeWeight.get(eid) ?? 1
             const cycle = p.len + 90
             let pos = progress.current.get(flow.id) ?? 0
@@ -332,22 +355,50 @@ export function FlowPackets() {
 
           // espaço "efetivo": comprimento × peso (hop pesado = mais lento)
           const paths = flow.edgeIds.map(getPath)
+          // primeiro hop dormente: a história para ali com ⚠ (condição não vale)
+          let blockedIndex = -1
+          for (let i = 0; i < flow.edgeIds.length; i++) {
+            if (dormantEdges.has(flow.edgeIds[i])) {
+              blockedIndex = i
+              break
+            }
+          }
           let effTotal = 0
-          for (let i = 0; i < paths.length; i++)
+          for (let i = 0; i < paths.length; i++) {
+            if (blockedIndex >= 0 && i >= blockedIndex) break
             effTotal += (paths[i]?.len ?? 0) * (edgeWeight.get(flow.edgeIds[i]) ?? 1)
+          }
           if (effTotal === 0) {
-            place(flow.id, null, 0)
+            if (blockedIndex >= 0) {
+              // bloqueado já no primeiro hop
+              place(flow.id, flow.edgeIds[blockedIndex], 0)
+              setBlocked(flow.id, true)
+              if (animFlows.length === 1)
+                useStore.getState().setLiveHop({ flowId: flow.id, index: blockedIndex })
+            } else {
+              place(flow.id, null, 0)
+            }
             continue
           }
           const velocity = (effTotal / targetDuration(effTotal)) * speed
-          const cycle = effTotal + velocity * 0.8
+          const hold = blockedIndex >= 0 ? velocity * 1.6 : velocity * 0.8
+          const cycle = effTotal + hold
           let pos = progress.current.get(flow.id) ?? 0
           if (playing) pos = (pos + dt * velocity) % cycle
           progress.current.set(flow.id, pos)
           if (pos >= effTotal) {
-            place(flow.id, null, 0)
+            if (blockedIndex >= 0) {
+              // segura no início do hop dormente, marcado com ⚠
+              place(flow.id, flow.edgeIds[blockedIndex], 0)
+              setBlocked(flow.id, true)
+              if (animFlows.length === 1)
+                useStore.getState().setLiveHop({ flowId: flow.id, index: blockedIndex })
+            } else {
+              place(flow.id, null, 0)
+            }
             continue
           }
+          setBlocked(flow.id, false)
           let off = pos
           let placed = false
           for (let i = 0; i < paths.length; i++) {
@@ -391,7 +442,7 @@ export function FlowPackets() {
       }
       hotUntil.current.clear()
     }
-  }, [animFlows, pulses, auto, playing, speed, stepIndex, reduced, edges, edgeColor, edgeWeight, nodeCenter])
+  }, [animFlows, pulses, auto, playing, speed, stepIndex, reduced, edges, edgeColor, edgeWeight, nodeCenter, dormantEdges])
 
   // saiu do modo auto ou acabaram os eventos → limpa o realce das arestas
   useEffect(() => {

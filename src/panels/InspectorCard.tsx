@@ -1,6 +1,6 @@
 import { useShallow } from 'zustand/react/shallow'
 import { IcX } from '../icons/ui'
-import { interpolate } from '../lib/vars'
+import { edgeActive, interpolate, whenLabel } from '../lib/vars'
 import { onDark } from '../lib/utils'
 import type { ArchNodeData } from '../model/types'
 import { ALL_AUTO, ALL_FLOWS, useStore } from '../store/store'
@@ -28,7 +28,10 @@ export function InspectorCard() {
       const src = s.nodes.find((n) => n.id === edge.source)
       const tgt = s.nodes.find((n) => n.id === edge.target)
       const tgtData = tgt?.data as ArchNodeData | undefined
+      const dormant = !!edge.data?.when && !edgeActive(edge, src)
       return {
+        dormant,
+        whenTag: whenLabel(edge),
         flowName: flow.name,
         flowColor: flow.color,
         payload: flow.payload ?? null,
@@ -71,6 +74,22 @@ export function InspectorCard() {
         {data.edgeLabel && (
           <div style={{ color: 'var(--ink-muted)', fontFamily: 'var(--font-mono)', fontSize: 10.5, marginTop: 2 }}>
             {t(data.edgeLabel)}
+          </div>
+        )}
+        {data.dormant && (
+          <div
+            style={{
+              marginTop: 8,
+              padding: '6px 9px',
+              borderRadius: 7,
+              background: 'oklch(0.75 0.13 70 / 0.12)',
+              border: '1px solid oklch(0.75 0.13 70 / 0.4)',
+              color: '#ffb74d',
+              fontSize: 11.5,
+            }}
+          >
+            ⚠ Hop dormente: a condição <span style={{ fontFamily: 'var(--font-mono)' }}>{data.whenTag}</span> não
+            vale com a config atual — este caminho não acontece. Alterne a flag no nó de origem para vê-lo fluir.
           </div>
         )}
         {data.note && (

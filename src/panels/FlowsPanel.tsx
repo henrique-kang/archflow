@@ -13,6 +13,7 @@ import {
 } from '../icons/ui'
 import { toast } from '../lib/toast'
 import { onDark } from '../lib/utils'
+import { edgeActive } from '../lib/vars'
 import type { FlowDef } from '../model/types'
 import { ALL_AUTO, ALL_FLOWS, pauseHistory, resumeHistory, useStore } from '../store/store'
 
@@ -174,6 +175,9 @@ function HopList({ flow }: { flow: FlowDef }) {
     <div onDrop={endDragGesture}>
       {flow.edgeIds.map((eid, i) => {
         const e = edges.find((ed) => ed.id === eid)
+        const dormant = e?.data?.when
+          ? !edgeActive(e, nodes.find((n) => n.id === e.source))
+          : false
         const nth = occurrence.get(eid) ?? 0
         occurrence.set(eid, nth + 1)
         return (
@@ -205,7 +209,18 @@ function HopList({ flow }: { flow: FlowDef }) {
             <span className="af-hop-n" style={{ background: onDark(flow.color), color: '#101318' }}>
               {i + 1}
             </span>
-            <span className="af-hop-label" title={e ? `${labelOf(e.source)} → ${labelOf(e.target)}` : eid}>
+            <span
+              className="af-hop-label"
+              title={
+                dormant
+                  ? 'Hop dormente: a condição da aresta não vale com a config atual — a animação para aqui'
+                  : e
+                    ? `${labelOf(e.source)} → ${labelOf(e.target)}`
+                    : eid
+              }
+              style={dormant ? { color: '#ffb74d' } : undefined}
+            >
+              {dormant ? '⚠ ' : ''}
               {e ? `${labelOf(e.source)} → ${labelOf(e.target)}` : '(aresta removida)'}
             </span>
             <button className="af-btn is-danger" onClick={() => removeHop(flow.id, i)} title="Remover hop">

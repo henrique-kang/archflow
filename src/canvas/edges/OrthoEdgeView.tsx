@@ -159,7 +159,10 @@ function OrthoEdgeViewInner(props: EdgeProps<OrthoEdge>) {
   const customColor = data?.color ? onDark(data.color) : null
   const strokeCss = flowColor ?? customColor ?? (selected ? 'var(--accent)' : undefined)
   const running =
-    !!flowColor && !flowState.dimmed && (flowState.stepState === null || flowState.stepState === 'current')
+    !!flowColor &&
+    !flowState.dimmed &&
+    !flowState.dormant &&
+    (flowState.stepState === null || flowState.stepState === 'current')
   const semiDim = flowState.stepState === 'future'
   const markerId = `af-arrow-${id}`
 
