@@ -35,7 +35,8 @@ exemplo".
   interativo: **clique num nó para disparar um evento**, que cascateia seguindo as setas a
   partir dali (ramificações incluídas) — sem configurar nada; vários eventos podem correr ao
   mesmo tempo. Velocidade 0.5×–4×, `Espaço` pausa. Para criar fluxos: `+` → "Adicionar hops"
-  (clique nas arestas) ou "Seguir setas" para autocompletar o caminho. Hops reordenam por arrasto.
+  (clique nas arestas) ou "Seguir setas" para autocompletar o caminho. Hops reordenam por arrasto,
+  e o mesmo editor tem **Excluir fluxo** (as arestas do diagrama continuam intactas).
 - **Apresentar** (`F5` ou `Ctrl+.`): tela cheia, só canvas + seletor de fluxos. Teclas `1–9`
   trocam de fluxo, `0` = todos, `A` = automático; `←`/`→` navegam hop a hop (modo passo a
   passo). `Esc` sai. `Shift+1` enquadra o diagrama.

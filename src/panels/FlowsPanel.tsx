@@ -330,24 +330,26 @@ function FlowRow({
             />
           </div>
           <HopList flow={flow} />
+          {/* dois botões por linha: três não cabem nos 260px do painel */}
           <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
             <button
               className={`af-btn is-outline${picking ? ' is-active' : ''}`}
-              style={{ flex: 1 }}
+              style={{ flex: 1, minWidth: 0, paddingInline: 6, fontSize: 11 }}
               onClick={() => setPicking(picking ? null : flow.id)}
             >
               {picking ? (
                 <>
-                  <IcCheck size={13} /> Concluir
+                  <IcCheck size={12} /> Concluir
                 </>
               ) : (
                 <>
-                  <IcTarget size={13} /> Adicionar hops
+                  <IcTarget size={12} /> Adicionar hops
                 </>
               )}
             </button>
             <button
               className="af-btn is-outline"
+              style={{ flex: 1, minWidth: 0, paddingInline: 6, fontSize: 11 }}
               disabled={flow.edgeIds.length === 0}
               title="Continua o fluxo seguindo as setas enquanto o caminho for único"
               onClick={() => {
@@ -361,16 +363,17 @@ function FlowRow({
             >
               Seguir setas →
             </button>
-            <button
-              className="af-btn is-outline is-danger"
-              onClick={() => {
-                if (window.confirm(`Excluir o fluxo "${flow.name}"?`)) deleteFlow(flow.id)
-              }}
-              title="Excluir fluxo"
-            >
-              <IcTrash size={13} />
-            </button>
           </div>
+          <button
+            className="af-btn is-outline is-danger"
+            style={{ width: '100%', marginTop: 6, fontSize: 11 }}
+            onClick={() => {
+              if (window.confirm(`Excluir o fluxo "${flow.name}"?`)) deleteFlow(flow.id)
+            }}
+            title="Excluir este fluxo (as arestas do diagrama continuam)"
+          >
+            <IcTrash size={12} /> Excluir fluxo
+          </button>
           {picking && (
             <div
               className="af-empty-note"
