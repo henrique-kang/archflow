@@ -1,4 +1,4 @@
-import { useShallow } from 'zustand/react/shallow'
+import { useMemo } from 'react'
 import { IcX } from '../icons/ui'
 import { flowPlan } from '../lib/flowPlan'
 import { edgeActive, interpolate, whenLabel } from '../lib/vars'
@@ -15,46 +15,65 @@ export function InspectorCard() {
   const open = useStore((s) => s.inspectorOpen)
   const setInspector = useStore((s) => s.setInspector)
   const variables = useStore((s) => s.variables)
-  const data = useStore(
-    useShallow((s) => {
-      if (!s.activeFlowId || s.activeFlowId === ALL_FLOWS || s.activeFlowId === ALL_AUTO) return null
-      const flow = s.flows.find((f) => f.id === s.activeFlowId)
-      if (!flow || !flow.edgeIds.length) return null
-      // hops EFETIVOS sob a config atual (variantes por condição)
-      const plan = flowPlan(flow, s.edges, s.nodes)
-      if (!plan.hops.length) return null
-      const index = Math.min(
-        s.stepIndex ?? (s.liveHop?.flowId === flow.id ? s.liveHop.index : 0),
-        plan.hops.length - 1,
-      )
-      const edge = s.edges.find((e) => e.id === plan.hops[index].edgeId)
-      if (!edge) return null
-      const src = s.nodes.find((n) => n.id === edge.source)
-      const tgt = s.nodes.find((n) => n.id === edge.target)
-      const tgtData = tgt?.data as ArchNodeData | undefined
-      const dormant = !!edge.data?.when && !edgeActive(edge, src)
+  // selecionar SÓ referências estáveis e derivar com useMemo — devolver arrays/objetos
+  // novos dentro do selector (mesmo com useShallow) causa loop de getSnapshot
+  const activeFlowId = useStore((s) => s.activeFlowId)
+  const stepIndex = useStore((s) => s.stepIndex)
+  const liveHop = useStore((s) => s.liveHop)
+  const flows = useStore((s) => s.flows)
+  const edges = useStore((s) => s.edges)
+  const nodes = useStore((s) => s.nodes)
+
+  const data = useMemo(() => {
+    if (!activeFlowId || activeFlowId === ALL_FLOWS || activeFlowId === ALL_AUTO) return null
+    const flow = flows.find((f) => f.id === activeFlowId)
+    if (!flow || !flow.edgeIds.length) return null
+    // hops EFETIVOS sob a config atual (variantes por condição)
+    const plan = flowPlan(flow, edges, nodes)
+    if (!plan.hops.length) return null
+    const index = Math.min(
+      stepIndex ?? (liveHop?.flowId === flow.id ? liveHop.index : 0),
+      plan.hops.length - 1,
+    )
+    const edge = edges.find((e) => e.id === plan.hops[index].edgeId)
+    if (!edge) return null
+    const src = nodes.find((n) => n.id === edge.source)
+    const tgt = nodes.find((n) => n.id === edge.target)
+    const tgtData = tgt?.data as ArchNodeData | undefined
+    const dormant = !!edge.data?.when && !edgeActive(edge, src)
+    const labelOf = (nodeId: string) =>
+      (nodes.find((n) => n.id === nodeId)?.data as ArchNodeData | undefined)?.label ?? nodeId
+    // trajeto completo (o "log" do fluxo): todos os hops efetivos, na ordem
+    const trail = plan.hops.map((h, i) => {
+      const he = edges.find((e) => e.id === h.edgeId)
       return {
-        dormant,
-        whenTag: whenLabel(edge),
-        flowName: flow.name,
-        flowColor: flow.color,
-        payload: flow.payload ?? null,
-        index,
-        total: plan.hops.length,
-        edgeLabel: edge.label != null ? String(edge.label) : null,
-        note: (edge.data?.note as string) ?? null,
-        srcLabel: (src?.data as ArchNodeData | undefined)?.label ?? edge.source,
-        tgtLabel: tgtData?.label ?? edge.target,
-        transform: tgtData?.transform ?? null,
-        payloadBefore: tgtData?.payloadBefore ?? null,
-        payloadAfter: tgtData?.payloadAfter ?? null,
-        tech: tgtData?.tech ?? null,
-        owner: tgtData?.owner ?? null,
-        link: tgtData?.link ?? null,
-        down: tgtData?.status === 'down',
+        i,
+        text: he ? `${labelOf(he.source)} → ${labelOf(he.target)}` : '(aresta removida)',
+        blocked: plan.blockedAt === i,
       }
-    }),
-  )
+    })
+    return {
+      dormant,
+      trail,
+      whenTag: whenLabel(edge),
+      flowName: flow.name,
+      flowColor: flow.color,
+      payload: flow.payload ?? null,
+      index,
+      total: plan.hops.length,
+      edgeLabel: edge.label != null ? String(edge.label) : null,
+      note: (edge.data?.note as string) ?? null,
+      srcLabel: (src?.data as ArchNodeData | undefined)?.label ?? edge.source,
+      tgtLabel: tgtData?.label ?? edge.target,
+      transform: tgtData?.transform ?? null,
+      payloadBefore: tgtData?.payloadBefore ?? null,
+      payloadAfter: tgtData?.payloadAfter ?? null,
+      tech: tgtData?.tech ?? null,
+      owner: tgtData?.owner ?? null,
+      link: tgtData?.link ?? null,
+      down: tgtData?.status === 'down',
+    }
+  }, [activeFlowId, flows, edges, nodes, stepIndex, liveHop])
 
   if (!open || !data) return null
   const t = (s: string) => interpolate(s, variables)
@@ -130,6 +149,25 @@ export function InspectorCard() {
               <pre>{t(data.payload)}</pre>
             </div>
           )
+        )}
+        {data.trail.length > 1 && (
+          <div className="af-inspector-section">
+            <div className="t">Trajeto ({data.trail.length} hops)</div>
+            {data.trail.map((h) => (
+              <button
+                key={h.i}
+                className={`af-trail-row${h.i === data.index ? ' is-current' : ''}`}
+                onClick={() => useStore.getState().setStep(h.i)}
+                title="Ir para este hop"
+              >
+                <span className="n">{h.i + 1}</span>
+                <span className="txt">
+                  {h.blocked ? '⚠ ' : ''}
+                  {t(h.text)}
+                </span>
+              </button>
+            ))}
+          </div>
         )}
         {(data.tech || data.owner || data.link) && (
           <div className="af-inspector-section">

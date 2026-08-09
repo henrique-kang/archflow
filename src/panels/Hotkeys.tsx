@@ -1,7 +1,9 @@
 import { useReactFlow } from '@xyflow/react'
 import { useEffect } from 'react'
 import { flowPlan } from '../lib/flowPlan'
-import { ALL_AUTO, ALL_FLOWS, redo, undo, useStore } from '../store/store'
+import { getCanvasPointer } from '../lib/pointer'
+import { toast } from '../lib/toast'
+import { ALL_AUTO, ALL_FLOWS, hasClipboard, redo, undo, useStore } from '../store/store'
 
 const isTyping = (t: EventTarget | null) =>
   t instanceof HTMLElement &&
@@ -27,6 +29,31 @@ export function Hotkeys() {
         e.preventDefault()
         redo()
         return
+      }
+
+      // copiar / colar / duplicar nós
+      if ((e.ctrlKey || e.metaKey) && !isTyping(e.target) && !st.presentation) {
+        const key = e.key.toLowerCase()
+        const selected = st.nodes.filter((n) => n.selected).map((n) => n.id)
+        if (key === 'c' && selected.length) {
+          e.preventDefault()
+          const n = st.copyNodes(selected)
+          toast(`${n} ${n === 1 ? 'item copiado' : 'itens copiados'}.`)
+          return
+        }
+        if (key === 'v') {
+          if (!hasClipboard()) return
+          e.preventDefault()
+          const n = st.pasteNodes(getCanvasPointer() ?? undefined)
+          if (n) toast(`${n} ${n === 1 ? 'item colado' : 'itens colados'}.`)
+          return
+        }
+        if (key === 'd' && selected.length) {
+          e.preventDefault()
+          const n = st.duplicateNodes(selected)
+          if (n) toast(`${n} ${n === 1 ? 'item duplicado' : 'itens duplicados'}.`)
+          return
+        }
       }
 
       // bloquear/desbloquear seleção

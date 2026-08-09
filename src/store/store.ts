@@ -20,7 +20,17 @@ import type {
   XY,
 } from '../model/types'
 import { normalizeWaypoints } from '../canvas/edges/ortho'
-import { absRect, inflate, rectContains, sideFacing, sideMid } from '../canvas/geometry'
+import {
+  absPosition,
+  absRect,
+  deepestGroupAt,
+  inflate,
+  nodeSize,
+  rectContains,
+  sideFacing,
+  sideMid,
+  withDescendants,
+} from '../canvas/geometry'
 import { defaultIconFor, typeLabel } from '../model/types'
 import { seedDoc } from '../model/seed'
 import { docToStore, orderNodes, safeVarKey, storeToDoc, type Doc, type StoreShape } from '../model/yaml'
@@ -39,6 +49,20 @@ const HISTORY_KEY = 'archflow.history.v6'
 interface Guides {
   x?: number
   y?: number
+}
+
+/** Área de transferência de nós (fora do histórico e do documento). */
+interface ClipboardData {
+  nodes: AnyNode[]
+  edges: OrthoEdge[]
+  /** posições absolutas no momento da cópia */
+  abs: Map<string, XY>
+  origin: XY
+}
+let clipboard: ClipboardData | null = null
+
+export function hasClipboard(): boolean {
+  return !!clipboard?.nodes.length
 }
 
 /** Evento do modo automático: fases (ondas/consultas) a partir do nó clicado. */
@@ -104,6 +128,12 @@ export interface StoreState extends StoreShape {
   toggleLock: (ids: string[]) => void
   bringToFront: (id: string) => void
   sendToBack: (id: string) => void
+  /** Copia nós (e as arestas entre eles) para a área de transferência. */
+  copyNodes: (ids: string[]) => number
+  /** Cola o conteúdo copiado; `at` = canto superior esquerdo desejado. */
+  pasteNodes: (at?: XY) => number
+  /** Copia + cola deslocado (Ctrl+D). */
+  duplicateNodes: (ids: string[]) => number
   /** Define/remove uma var de config do nó (value null remove). */
   setNodeVar: (nodeId: string, name: string, value: NodeVar | null) => void
   /** Renomeia uma var do nó, atualizando as condições de aresta que a usam. */
@@ -428,6 +458,94 @@ export const useStore = create<StoreState>()(
         if (!node) return
         const rest = nodes.filter((n) => n.id !== id)
         set({ nodes: orderNodes([node, ...rest]) })
+      },
+
+      copyNodes: (ids) => {
+        const st = get()
+        // copiar um grupo leva os filhos junto
+        const all = new Set<string>()
+        for (const id of ids) for (const d of withDescendants(id, st.nodes)) all.add(d)
+        const nodes = st.nodes.filter((n) => all.has(n.id))
+        if (!nodes.length) return 0
+        const byId = new Map(st.nodes.map((n) => [n.id, n]))
+        const abs = new Map<string, XY>()
+        let minX = Infinity
+        let minY = Infinity
+        for (const n of nodes) {
+          const p = absPosition(n, byId)
+          abs.set(n.id, p)
+          minX = Math.min(minX, p.x)
+          minY = Math.min(minY, p.y)
+        }
+        clipboard = {
+          nodes: nodes.map((n) => ({ ...n, data: structuredClone(n.data), selected: false }) as AnyNode),
+          // só as arestas com as duas pontas copiadas
+          edges: st.edges
+            .filter((e) => all.has(e.source) && all.has(e.target))
+            .map((e) => ({ ...e, data: structuredClone(e.data), selected: false })),
+          abs,
+          origin: { x: minX, y: minY },
+        }
+        return nodes.length
+      },
+
+      pasteNodes: (at) => {
+        if (!clipboard?.nodes.length) return 0
+        const st = get()
+        const clip = clipboard
+        const target = at ?? { x: clip.origin.x + 32, y: clip.origin.y + 32 }
+        const delta = { x: target.x - clip.origin.x, y: target.y - clip.origin.y }
+        const idMap = new Map<string, string>()
+        for (const n of clip.nodes) idMap.set(n.id, uid(n.type === 'group' ? 'g_' : 'n_'))
+
+        const pasted: AnyNode[] = clip.nodes.map((n) => {
+          const oldAbs = clip.abs.get(n.id)!
+          const newAbs = { x: oldAbs.x + delta.x, y: oldAbs.y + delta.y }
+          const parentCopied = n.parentId && idMap.has(n.parentId)
+          if (parentCopied) {
+            // posição relativa preservada dentro do grupo copiado
+            return { ...n, id: idMap.get(n.id)!, parentId: idMap.get(n.parentId!)!, selected: true } as AnyNode
+          }
+          // nó de topo: adota a raia onde caiu
+          const size = nodeSize(n)
+          const center = { x: newAbs.x + size.w / 2, y: newAbs.y + size.h / 2 }
+          const group = n.type === 'group' ? null : deepestGroupAt(center, st.nodes, new Set())
+          if (group) {
+            const byId = new Map(st.nodes.map((x) => [x.id, x]))
+            const gAbs = absPosition(group, byId)
+            return {
+              ...n,
+              id: idMap.get(n.id)!,
+              parentId: group.id,
+              position: { x: newAbs.x - gAbs.x, y: newAbs.y - gAbs.y },
+              selected: true,
+            } as AnyNode
+          }
+          return { ...n, id: idMap.get(n.id)!, parentId: undefined, position: newAbs, selected: true } as AnyNode
+        })
+
+        const pastedEdges: OrthoEdge[] = clip.edges.map((e) => ({
+          ...e,
+          id: uid('e_'),
+          source: idMap.get(e.source)!,
+          target: idMap.get(e.target)!,
+          data: {
+            ...e.data!,
+            waypoints: (e.data?.waypoints ?? []).map((p) => ({ x: p.x + delta.x, y: p.y + delta.y })),
+          },
+        }))
+
+        set({
+          nodes: orderNodes([...st.nodes.map((n) => ({ ...n, selected: false })), ...pasted]),
+          edges: [...st.edges.map((e) => ({ ...e, selected: false })), ...pastedEdges],
+        })
+        return pasted.length
+      },
+
+      duplicateNodes: (ids) => {
+        const n = get().copyNodes(ids)
+        if (!n) return 0
+        return get().pasteNodes()
       },
 
       setNodeVar: (nodeId, name, value) => {

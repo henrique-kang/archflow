@@ -25,7 +25,9 @@ exemplo".
 - **Editar**: arraste nós; conecte arrastando da borda de um nó; painel direito edita o item
   selecionado. Duplo-clique renomeia. Botão direito abre o menu de contexto (bloquear, trazer
   para frente/enviar para trás, excluir). `Ctrl+Z`/`Ctrl+Y` desfaz/refaz; `Ctrl+L` bloqueia;
-  `Delete` exclui; setas movem (Shift = 1px). Ao arrastar um nó, a raia que vai recebê-lo acende.
+  `Delete` exclui; setas movem (Shift = 1px). **Copiar/colar**: `Ctrl+C` · `Ctrl+V` (cola onde o
+  mouse está, adotando a raia) · `Ctrl+D` duplica — copiar um grupo leva os filhos, e copiar
+  vários nós leva as arestas entre eles. Ao arrastar um nó, a raia que vai recebê-lo acende.
 - **Dobrar linhas** (estilo draw.io): selecione uma aresta e arraste um segmento — a dobra vira
   waypoint persistente. Duplo-clique na linha adiciona dobra; nos quadrados, remove. Arrastar a
   linha de volta à rota natural limpa as dobras sozinho; botão direito → "Limpar dobras" também.
@@ -49,9 +51,10 @@ exemplo".
   e B) — a config escolhe qual variante flui, renumerando os hops e esmaecendo o ramo inativo
   (o editor marca com ↷). Se um hop dormente não tem alternativa, a animação **para nele com ⚠**
   e o inspetor explica o porquê, em vez de fingir que o caminho acontece.
-- **Inspetor de Pacote** (👁 no transporte, na apresentação ou clicando no pacote): mostra, hop a
-  hop, o que o nó de destino faz com a mensagem, o payload de exemplo (antes/depois) e a nota da
-  etapa. **Variáveis** do diagrama (`{{pedido}}`) interpolam em rótulos, payloads e notas;
+- **Inspetor de Pacote** — botão **Trajeto** (👁) na barra de transporte com um fluxo ativo, na
+  apresentação, ou clicando no pacote: mostra o **trajeto completo do fluxo** (todos os hops, com
+  o atual destacado e clicável para navegar) e, para o hop corrente, o que o nó de destino faz
+  com a mensagem, o payload de exemplo (antes/depois) e a nota da etapa. **Variáveis** do diagrama (`{{pedido}}`) interpolam em rótulos, payloads e notas;
   **cenários** salvam/aplicam conjuntos de variáveis, configs e estados de uma vez.
 - **Arquivos**: Exportar → YAML (versionável em git), SVG animado (fontes embutidas; visão atual
   ou todos os fluxos) ou PNG 2×. Importar aceita o mesmo YAML. Menu ⋯ guarda um histórico local

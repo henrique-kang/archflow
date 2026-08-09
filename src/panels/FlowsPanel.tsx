@@ -57,11 +57,12 @@ function Transport() {
       </button>
       {singleFlow && (
         <button
-          className={`af-btn is-icon is-outline${inspectorOpen ? ' is-active' : ''}`}
+          className={`af-btn is-outline${inspectorOpen ? ' is-active' : ''}`}
+          style={{ paddingInline: 8, fontSize: 11 }}
           onClick={() => setInspector(!inspectorOpen)}
-          title="Inspetor de pacote (o que acontece em cada hop)"
+          title="Inspetor de pacote: trajeto do fluxo e o que acontece em cada hop"
         >
-          <IcEye size={14} />
+          <IcEye size={13} /> Trajeto
         </button>
       )}
       <div className="af-speed">

@@ -13,14 +13,15 @@ import {
   type OnNodeDrag,
   type OnReconnect,
 } from '@xyflow/react'
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type React from 'react'
 import { useShallow } from 'zustand/react/shallow'
 import type { AnyNode, ArchNodeData, ArchType, OrthoEdge, XY } from '../model/types'
 import { TYPE_COLORS, typeColor } from '../model/types'
+import { setCanvasPointer } from '../lib/pointer'
 import { toast } from '../lib/toast'
 import { withAlpha } from '../lib/utils'
-import { ALL_AUTO, useStore } from '../store/store'
+import { ALL_AUTO, hasClipboard, useStore } from '../store/store'
 import { gestureJustEnded } from './edges/gestureState'
 import { nearestT, pointAlong, snap } from './edges/ortho'
 import { OrthoEdgeView } from './edges/OrthoEdgeView'
@@ -90,7 +91,48 @@ export function FlowCanvas() {
   const [ctxMenu, setCtxMenu] = useState<CtxMenu | null>(null)
   const [inline, setInline] = useState<InlineEditState | null>(null)
   const flowRef = useRef<HTMLDivElement>(null)
+  /** posição do botão direito ao apertar — distingue clique de arrasto (pan) */
+  const rightDown = useRef<{ x: number; y: number } | null>(null)
   const { screenToFlowPosition, fitView } = useReactFlow()
+
+  /**
+   * Menu de contexto do canvas vazio. O botão direito também faz pan
+   * (panOnDrag), e o React Flow cancela o contextmenu antes de ele chegar ao
+   * React — por isso ouvimos na fase de CAPTURE, e só abrimos quando o gesto
+   * foi um clique (sem arrasto).
+   */
+  useEffect(() => {
+    const host = flowRef.current
+    if (!host) return
+    const onCtx = (e: MouseEvent) => {
+      // durante o pan o ponteiro é capturado e o e.target deixa de ser o pane —
+      // olhamos quem está de fato sob o cursor
+      const under = document.elementFromPoint(e.clientX, e.clientY)
+      if (!under || !host.contains(under)) return
+      if (under.closest('.react-flow__node, .react-flow__edge, .af-menu, .af-props, .af-palette, .react-flow__controls, .react-flow__minimap'))
+        return
+      const d = rightDown.current
+      rightDown.current = null
+      if (d && Math.hypot(e.clientX - d.x, e.clientY - d.y) > 4) return
+      e.preventDefault()
+      e.stopPropagation()
+      setCtxMenu({ x: e.clientX, y: e.clientY, kind: 'pane', id: null })
+    }
+    host.addEventListener('contextmenu', onCtx, true)
+    return () => host.removeEventListener('contextmenu', onCtx, true)
+  }, [])
+
+  // Esc fecha o menu de contexto (antes de qualquer outro atalho de Esc)
+  useEffect(() => {
+    if (!ctxMenu) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return
+      e.stopPropagation()
+      setCtxMenu(null)
+    }
+    window.addEventListener('keydown', onKey, true)
+    return () => window.removeEventListener('keydown', onKey, true)
+  }, [ctxMenu])
 
   /** Snap por linhas-guia: ajusta o change de posição e publica as guias. */
   const applyGuides = useCallback((changes: NodeChange<AnyNode>[]) => {
@@ -353,6 +395,23 @@ export function FlowCanvas() {
           </button>
           <button
             onClick={() => {
+              const n = st.copyNodes(ids)
+              toast(`${n} ${n === 1 ? 'item copiado' : 'itens copiados'}.`)
+              closeMenu()
+            }}
+          >
+            Copiar <span style={{ marginLeft: 'auto', color: 'var(--ink-faint)', fontSize: 10.5 }}>Ctrl+C</span>
+          </button>
+          <button
+            onClick={() => {
+              st.duplicateNodes(ids)
+              closeMenu()
+            }}
+          >
+            Duplicar <span style={{ marginLeft: 'auto', color: 'var(--ink-faint)', fontSize: 10.5 }}>Ctrl+D</span>
+          </button>
+          <button
+            onClick={() => {
               st.toggleLock(ids)
               closeMenu()
             }}
@@ -439,14 +498,31 @@ export function FlowCanvas() {
       )
     }
     return (
-      <button
-        onClick={() => {
-          fitView({ padding: 0.12, duration: 300 })
-          closeMenu()
-        }}
-      >
-        Enquadrar diagrama
-      </button>
+      <>
+        {hasClipboard() && (
+          <>
+            <button
+              onClick={() => {
+                const at = screenToFlowPosition({ x: ctxMenu.x, y: ctxMenu.y })
+                const n = st.pasteNodes(at)
+                if (n) toast(`${n} ${n === 1 ? 'item colado' : 'itens colados'}.`)
+                closeMenu()
+              }}
+            >
+              Colar aqui <span style={{ marginLeft: 'auto', color: 'var(--ink-faint)', fontSize: 10.5 }}>Ctrl+V</span>
+            </button>
+            <hr />
+          </>
+        )}
+        <button
+          onClick={() => {
+            fitView({ padding: 0.12, duration: 300 })
+            closeMenu()
+          }}
+        >
+          Enquadrar diagrama
+        </button>
+      </>
     )
   }
 
@@ -456,6 +532,11 @@ export function FlowCanvas() {
       ref={flowRef}
       onDragOver={onDragOver}
       onDrop={onDrop}
+      onPointerMove={(e) => setCanvasPointer(screenToFlowPosition({ x: e.clientX, y: e.clientY }))}
+      onPointerLeave={() => setCanvasPointer(null)}
+      onPointerDown={(e) => {
+        if (e.button === 2) rightDown.current = { x: e.clientX, y: e.clientY }
+      }}
     >
       <ReactFlow
         className={connecting ? 'is-connecting' : ''}

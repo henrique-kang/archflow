@@ -862,6 +862,61 @@ input[type='range'].af-range::-webkit-slider-thumb:hover {
   overflow-y: auto;
 }
 
+/* trajeto (log) no inspetor */
+.af-trail-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  width: 100%;
+  padding: 3px 5px;
+  border: none;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--ink-muted);
+  cursor: pointer;
+  text-align: left;
+  transition: background 130ms, color 130ms;
+}
+
+.af-trail-row:hover {
+  background: var(--bg-hover);
+  color: var(--ink);
+}
+
+.af-trail-row.is-current {
+  background: var(--accent-soft);
+  color: var(--ink);
+}
+
+.af-trail-row .n {
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--bg-raised);
+  font-size: 9px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.af-trail-row.is-current .n {
+  background: var(--accent);
+  color: #101318;
+}
+
+.af-trail-row .txt {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+}
+
 /* linhas de var no painel */
 .af-var-row {
   display: flex;
